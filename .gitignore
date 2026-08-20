@@ -1,0 +1,37 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache & build outputs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Models & MediaPipe Assets
+hand_landmarker.task
+
+# Datasets, Database & Media Files
+data/
+videos/
+*.db
+*.sqlite
+*.sqlite3
+*.zip
+*.tar.gz
+*.rar
+
+# OS / IDE generated files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

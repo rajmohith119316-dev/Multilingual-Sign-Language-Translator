@@ -1,0 +1,20 @@
+# ── Core Vision & ML ──────────────────────────────────────────────────────────
+opencv-python>=4.9.0
+mediapipe>=0.10.14
+tensorflow>=2.16.0
+scikit-learn>=1.4.0
+joblib>=1.3.0
+numpy>=1.26.0
+pandas>=2.2.0
+
+# ── NLP / Translation / TTS ───────────────────────────────────────────────────
+deep-translator>=1.11.4
+pyttsx3>=2.90
+
+# ── GUI / Image ────────────────────────────────────────────────────────────────
+Pillow>=10.3.0
+# tkinter is part of the Python 3.11 standard library — no pip install needed
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+requests>=2.31.0      # for auto-downloading hand_landmarker.task
+tqdm>=4.66.0          # progress bars in data processors

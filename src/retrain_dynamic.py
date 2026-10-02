@@ -151,7 +151,7 @@ def train_new_gesture(
         # ── 3. Freeze Conv1D and GRU layers ───────────────────────────────────────
         _prog(3, "Freezing Conv1D + GRU layers…")
         for layer in old_model.layers:
-            if layer.name.startswith(("conv1d", "gru", "maxpool")):
+            if layer.name.startswith(("conv1d", "maxpool")):
                 layer.trainable = False
                 logger.debug("Frozen: %s", layer.name)
 
@@ -180,29 +180,38 @@ def train_new_gesture(
 
         X_all = np.array(X_new + X_old, dtype=np.float32)
         y_all_str = y_new + y_old
-
+        
         if len(X_all) == 0:
             raise ValueError("Combined training set is empty.")
+            
+        import sklearn
+        X_all, y_all_str = sklearn.utils.shuffle(X_all, y_all_str, random_state=42)
 
         y_enc = le.transform(y_all_str)
         y_hot = keras.utils.to_categorical(y_enc, n_new)
+        
+        # Calculate class weights to handle imbalance (10 new samples vs 180 old samples)
+        from sklearn.utils.class_weight import compute_class_weight
+        cw = compute_class_weight("balanced", classes=np.unique(y_enc), y=y_enc)
+        class_weight_dict = {c: w for c, w in zip(np.unique(y_enc), cw)}
 
-    val_split = 0.15 if len(X_all) >= 20 else 0.0
+    val_split = 0.0
 
     callbacks = [
         keras.callbacks.EarlyStopping(
-            monitor="val_accuracy" if val_split > 0 else "accuracy",
-            patience=5, restore_best_weights=True,
+            monitor="accuracy",
+            patience=10, restore_best_weights=True,
         ),
     ]
 
-    _prog(5, f"Fine-tuning on {len(X_all)} samples ({config.FINETUNE_EPOCHS} epochs)…")
+    _prog(5, f"Fine-tuning on {len(X_all)} samples (35 epochs)…")
     new_model.fit(
         X_all, y_hot,
-        epochs=config.FINETUNE_EPOCHS,
+        epochs=35,
         batch_size=min(config.BATCH_SIZE, len(X_all)),
         validation_split=val_split,
         callbacks=callbacks,
+        class_weight=class_weight_dict,
         verbose=1,
     )
 

@@ -130,6 +130,11 @@ def train_new_gesture(
     else:
         _prog(1, "Loading Word Expert + LabelEncoder…")
         old_model = keras.models.load_model(str(model_path), compile=False)
+        old_model.build(input_shape=(None, config.SEQUENCE_LENGTH, config.WORD_NUM_FEATURES))
+        # Force full layer initialization with a dummy forward pass
+        dummy = np.zeros((1, config.SEQUENCE_LENGTH, config.WORD_NUM_FEATURES), dtype=np.float32)
+        _ = old_model(dummy)
+        
         le: LabelEncoder = joblib.load(str(encoder_path))
 
         old_classes = le.classes_.tolist()
@@ -152,15 +157,16 @@ def train_new_gesture(
 
         # ── 4. Replace classification head ────────────────────────────────────────
         _prog(4, "Replacing classification head…")
-        penultimate_output = old_model.layers[-2].output   # Dropout layer
-        new_out = keras.layers.Dense(
-            n_new, activation="softmax", name="output_ft"
-        )(penultimate_output)
-        new_model = keras.Model(
-            inputs=old_model.input,
-            outputs=new_out,
-            name="word_expert_finetuned",
-        )
+        new_model = keras.Sequential(name="word_expert_finetuned")
+        # Add an explicit Input layer so the Sequential model is built immediately
+        new_model.add(keras.Input(shape=(config.SEQUENCE_LENGTH, config.WORD_NUM_FEATURES)))
+        # Add all layers except the last Dense classification layer
+        for layer in old_model.layers[:-1]:
+            new_model.add(layer)
+        
+        # Add new classification head
+        new_model.add(keras.layers.Dense(n_new, activation="softmax", name="output_ft"))
+        
         new_model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=config.FINETUNE_LR),
             loss="categorical_crossentropy",

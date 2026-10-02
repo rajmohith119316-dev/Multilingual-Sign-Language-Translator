@@ -50,6 +50,10 @@ class AudioTranslator:
         self._last_tts_text = ""
         self._last_tts_time = 0.0
 
+        self._pending_translations = set()
+        self._last_logged_label = ""
+        self._last_logged_lang = ""
+
         self._tts_lock   = threading.Lock()
         self._tts_queue: list[str] = []
         self._tts_engine = None
@@ -86,6 +90,11 @@ class AudioTranslator:
         if cached:
             return cached
 
+        if (english_text, self._lang) in self._pending_translations:
+            return english_text
+
+        self._pending_translations.add((english_text, self._lang))
+
         # Async background translation to avoid UI freezing
         target_lang = self._lang
         def _bg_translate():
@@ -98,6 +107,8 @@ class AudioTranslator:
                         self.speak(res)
             except Exception as exc:        # noqa: BLE001
                 logger.warning("Async translation failed for '%s': %s", english_text, exc)
+            finally:
+                self._pending_translations.discard((english_text, target_lang))
 
         threading.Thread(target=_bg_translate, daemon=True, name="AsyncTranslator").start()
         return english_text   # immediate non-blocking response
@@ -163,12 +174,18 @@ class AudioTranslator:
         """Translate + speak + log to DB. Returns translated text."""
         translated  = self.translate_and_speak(predicted_label)
         lang_name   = _code_to_name(self._lang)
-        self._db.log_prediction(
-            predicted_label=predicted_label,
-            confidence_score=confidence,
-            target_language=lang_name,
-            translated_text=translated,
-        )
+        
+        # Debounce DB logging
+        if predicted_label != self._last_logged_label or lang_name != self._last_logged_lang:
+            self._db.log_prediction(
+                predicted_label=predicted_label,
+                confidence_score=confidence,
+                target_language=lang_name,
+                translated_text=translated,
+            )
+            self._last_logged_label = predicted_label
+            self._last_logged_lang = lang_name
+            
         return translated
 
 

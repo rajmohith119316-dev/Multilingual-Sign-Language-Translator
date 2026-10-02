@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Multilingual Real-Time Sign Language Translator — AI-powered gesture recognition with 3D hand models, multi-language translation, and teaching mode." />
+  <title>SignLingo — Multilingual Sign Language Translator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       Design System Tokens
+       ═══════════════════════════════════════════════════════════ */
+    :root {
+      --bg-primary: #06060f;
+      --bg-secondary: #0c0c1d;
+      --bg-card: #12122a;
+      --bg-card-hover: #181840;
+      --bg-elevated: #1a1a3e;
+      --border: #252555;
+      --border-glow: #7c3aed40;
+      --accent: #00e5cc;
+      --accent-dim: #00e5cc20;
+      --accent-glow: #00e5cc40;
+      --purple: #7c3aed;
+      --purple-dim: #7c3aed20;
+      --purple-glow: #7c3aed50;
+      --pink: #ec4899;
+      --blue: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --text-primary: #e8e8f0;
+      --text-secondary: #8888b0;
+      --text-muted: #5a5a80;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Reset & Base
+       ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
+
+    /* Ambient background particles */
+    body::before {
+      content: '';
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background:
+        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
+        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent),
+        radial-gradient(ellipse 400px 300px at 50% 50%, rgba(236,72,153,0.04), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Navigation
+       ═══════════════════════════════════════════════════════════ */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(6,6,15,0.85);
+      backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex; align-items: center;
+      height: 64px;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.15rem;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+      margin-right: auto;
+    }
+    .nav-brand svg { width: 28px; height: 28px; }
+    .nav-tabs {
+      display: flex; gap: 4px;
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      padding: 4px;
+      border: 1px solid var(--border);
+    }
+    .nav-tab {
+      padding: 8px 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem; font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition);
+      border: none; background: none;
+      white-space: nowrap;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .nav-tab:hover { color: var(--text-primary); background: var(--bg-elevated); }
+    .nav-tab.active {
+      color: var(--bg-primary);
+      background: linear-gradient(135deg, var(--accent), #00b8a0);
+      font-weight: 600;
+      box-shadow: 0 2px 16px var(--accent-glow);
+    }
+    .nav-tab .tab-icon { font-size: 1.1em; }
+
+    .nav-status {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .status-dot.offline { background: var(--red); animation: none; }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+    .status-text { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* ═══════════════════════════════════════════════════════════
+       Page Container
+       ═══════════════════════════════════════════════════════════ */
+    .page-container {
+      margin-top: 64px;
+      position: relative;
+      z-index: 1;
+    }
+    .page {
+      display: none;
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+      animation: fadeIn 0.4s ease;
+    }
+    .page.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Cards & Common Components
+       ═══════════════════════════════════════════════════════════ */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-glow), var(--purple-glow), transparent);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .card:hover::before { opacity: 1; }
+    .card:hover { border-color: var(--border-glow); box-shadow: var(--shadow-glow); }
+
+    .card-title {
+      font-size: 0.8rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-title .icon { color: var(--accent); font-size: 1.1em; }
+
+    h2.section-title {
+      font-size: 1.5rem; font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .section-subtitle {
+      font-size: 0.9rem; color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px;
+      border: none; border-radius: var(--radius-md);
+      font-family: inherit; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      letter-spacing: 0.3px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #00b8a0);
+      color: var(--bg-primary);
+      box-shadow: 0 2px 16px var(--accent-glow);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 24px var(--accent-glow); }
+    .btn-secondary {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--purple); background: var(--purple-dim); }
+    .btn-danger {
+      background: linear-gradient(135deg, var(--red), #dc2626);
+      color: white;
+    }
+    .btn-danger:hover { transform: translateY(-1px); }
+    .btn-purple {
+      background: linear-gradient(135deg, var(--purple), #6d28d9);
+      color: white;
+      box-shadow: 0 2px 16px var(--purple-glow);
+    }
+    .btn-purple:hover { transform: translateY(-1px); box-shadow: 0 4px 24px var(--purple-glow); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+    /* Inputs */
+    .input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-family: inherit; font-size: 0.9rem;
+      transition: all var(--transition);
+      outline: none;
+    }
+    .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+    select.input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238888b0'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    /* Toggle */
+    .toggle-wrapper { display: flex; align-items: center; gap: 10px; }
+    .toggle {
+      position: relative; width: 44px; height: 24px;
+      background: var(--bg-secondary); border-radius: 12px;
+      cursor: pointer; transition: background var(--transition);
+      border: 1px solid var(--border);
+    }
+    .toggle.on { background: var(--accent); border-color: var(--accent); }
+    .toggle::after {
+      content: '';
+      position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: white;
+      transition: transform var(--transition);
+    }
+    .toggle.on::after { transform: translateX(20px); }
+    .toggle-label { font-size: 0.85rem; color: var(--text-secondary); }
+
+    /* Badge / Chip */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .badge-idle    { background: var(--text-muted); background: rgba(88,88,128,0.2); color: var(--text-muted); }
+    .badge-alpha   { background: rgba(56,189,248,0.15); color: var(--blue); }
+    .badge-word    { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge-success { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge-warn    { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .badge-danger  { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    /* Progress Bar */
+    .progress-track {
+      width: 100%; height: 8px;
+      background: var(--bg-secondary);
+      border-radius: 4px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--purple));
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PAGE 1 — Recognition & Translation
+       ═══════════════════════════════════════════════════════════ */
+    .p1-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 20px;
+    }
+    .p1-feed-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .p1-feed-header {
+      padding: 14px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .p1-feed-header .title {
+      font-size: 0.85rem; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .live-indicator {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.7rem; font-weight: 600; color: var(--red);
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .live-indicator::before {
+      content: ''; width: 8px; height: 8px;
+      background: var(--red); border-radius: 50%;
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    #video-feed {
+      width: 100%; display: block;
+      background: #000;
+    }
+    .p1-buffer-bar {
+      padding: 12px 18px;
+      display: flex; align-items: center; gap: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+    .p1-buffer-bar .progress-track { flex: 1; }
+    .p1-buffer-label { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+
+    .p1-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+    /* Prediction display */
+    .prediction-hero {
+      text-align: center;
+      padding: 28px 20px;
+    }
+    .prediction-sign {
+      font-size: 4rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 8px;
+      min-height: 70px;
+    }
+    .prediction-conf {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+    .prediction-conf .value { color: var(--accent); font-weight: 600; }
+
+    .translation-box {
+      text-align: center;
+      padding: 18px;
+      background: var(--bg-secondary);
+      border-radius: var(--radius-md);
+      margin: 12px 0 0;
+    }
+    .translation-text {
+      font-size: 1.3rem; font-weight: 600;
+      color: var(--amber);
+      word-break: break-word;
+    }
+    .translation-lang {
+      font-size: 0.75rem; color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Controls */
+    .control-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .control-row label {
+      font-size: 0.8rem; font-weight: 500;
+      color: var(--text-secondary);
+      min-width: 70px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PAGE 2 — Teach New Gesture
+       ═══════════════════════════════════════════════════════════ */
+    .p2-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 20px;
+    }
+    .p2-feed-container {
+      position: relative;
+      background: #000;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .p2-feed-container img {
+      width: 100%; display: block;
+    }
+    .p2-overlay-badge {
+      position: absolute; top: 12px; left: 12px;
+      padding: 6px 14px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      border-radius: var(--radius-md);
+      font-size: 0.8rem; font-weight: 600;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .p2-rec-dot {
+      width: 10px; height: 10px;
+      background: var(--red); border-radius: 50%;
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+    .p2-steps {
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .p2-step-card {
+      display: flex; gap: 14px;
+      padding: 16px;
+      align-items: flex-start;
+    }
+    .p2-step-num {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.85rem;
+      color: white;
+      flex-shrink: 0;
+    }
+    .p2-step-num.done { background: var(--green); }
+    .p2-step-content { flex: 1; }
+    .p2-step-title { font-weight: 600; margin-bottom: 4px; }
+    .p2-step-desc { font-size: 0.8rem; color: var(--text-secondary); }
+
+    .p2-rec-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2rem; font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PAGE 3 — 3D Animation & Learn Gestures
+       ═══════════════════════════════════════════════════════════ */
+    .p3-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .p3-3d-container {
+      height: 480px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      position: relative;
+      overflow: hidden;
+    }
+    #hand-canvas {
+      width: 100% !important; height: 100% !important;
+      border-radius: var(--radius-lg);
+    }
+    .p3-3d-controls {
+      position: absolute; bottom: 16px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 6px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      padding: 8px 12px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+    }
+    .p3-letter-btn {
+      width: 36px; height: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-weight: 600; font-size: 0.85rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .p3-letter-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .p3-letter-btn.active {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-color: var(--accent);
+    }
+    .p3-gesture-info {
+      padding: 20px;
+    }
+    .p3-gesture-name {
+      font-size: 5rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .p3-gesture-desc {
+      font-size: 1rem; color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+    .p3-finger-bars { display: flex; flex-direction: column; gap: 8px; }
+    .p3-finger-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .p3-finger-name {
+      font-size: 0.8rem; color: var(--text-muted);
+      width: 60px; text-align: right;
+    }
+    .p3-finger-bar {
+      flex: 1; height: 8px;
+      background: var(--bg-secondary);
+      border-radius: 4px; overflow: hidden;
+    }
+    .p3-finger-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease, background 0.5s ease;
+    }
+    .p3-finger-val {
+      font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted); width: 40px;
+    }
+
+    /* Gesture Reference Gallery */
+    .p3-gallery-title {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 28px 0 16px;
+    }
+    .p3-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+    }
+    .p3-gallery-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .p3-gallery-item:hover {
+      border-color: var(--accent);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+    }
+    .p3-gallery-item.active {
+      border-color: var(--purple);
+      background: var(--purple-dim);
+      box-shadow: 0 0 20px var(--purple-glow);
+    }
+    .p3-gallery-letter {
+      font-size: 2rem; font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+    .p3-gallery-desc {
+      font-size: 0.65rem; color: var(--text-muted);
+      margin-top: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PAGE 4 — History
+       ═══════════════════════════════════════════════════════════ */
+    .p4-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .p4-stat-card {
+      text-align: center;
+      padding: 20px;
+    }
+    .p4-stat-value {
+      font-size: 2.2rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+    }
+    .p4-stat-label {
+      font-size: 0.75rem; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-top: 6px;
+    }
+
+    .p4-table-container {
+      overflow-x: auto;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+    }
+    .p4-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .p4-table th {
+      background: var(--bg-card);
+      color: var(--accent);
+      font-weight: 600;
+      padding: 14px 16px;
+      text-align: left;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      transition: color var(--transition);
+    }
+    .p4-table th:hover { color: var(--purple); }
+    .p4-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(37,37,85,0.5);
+      color: var(--text-secondary);
+    }
+    .p4-table tr:nth-child(odd) td { background: var(--bg-secondary); }
+    .p4-table tr:nth-child(even) td { background: var(--bg-card); }
+    .p4-table tr:hover td { background: var(--bg-elevated); color: var(--text-primary); }
+
+    .p4-header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .p4-actions { display: flex; gap: 8px; }
+    .p4-empty {
+      text-align: center; padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .p4-empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.4; }
+
+    /* ═══════════════════════════════════════════════════════════
+       Responsive
+       ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .p1-grid, .p2-grid, .p3-grid {
+        grid-template-columns: 1fr;
+      }
+      .nav-tabs { overflow-x: auto; }
+      .nav-status { display: none; }
+      .p3-3d-container { height: 360px; }
+    }
+    @media (max-width: 600px) {
+      .nav { padding: 0 12px; }
+      .nav-tab { padding: 6px 12px; font-size: 0.75rem; }
+      .page { padding: 16px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Micro-animations
+       ═══════════════════════════════════════════════════════════ */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .shimmer-text {
+      background: linear-gradient(90deg, var(--accent), var(--purple), var(--pink), var(--accent));
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 4s linear infinite;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ NAVIGATION ═══════════════════════════════════════════════════ -->
+  <nav class="nav" id="main-nav">
+    <div class="nav-brand">
+      <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.5"/><path d="M14 6v6l5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="14" cy="14" r="3" fill="currentColor"/></svg>
+      <span>SignLingo</span>
+    </div>
+
+    <div class="nav-tabs" id="nav-tabs">
+      <button class="nav-tab active" data-page="page-recognize" id="tab-recognize">
+        <span class="tab-icon">📷</span> Recognition
+      </button>
+      <button class="nav-tab" data-page="page-teach" id="tab-teach">
+        <span class="tab-icon">🎓</span> Teach
+      </button>
+      <button class="nav-tab" data-page="page-3d" id="tab-3d">
+        <span class="tab-icon">✋</span> 3D &amp; Learn
+      </button>
+      <button class="nav-tab" data-page="page-history" id="tab-history">
+        <span class="tab-icon">📊</span> History
+      </button>
+    </div>
+
+    <div class="nav-status">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="status-text" id="status-text">System ready</span>
+    </div>
+  </nav>
+
+  <!-- ═══ PAGE CONTAINER ════════════════════════════════════════════════ -->
+  <div class="page-container">
+
+    <!-- ─── PAGE 1: RECOGNITION & TRANSLATION ─────────────────────────── -->
+    <div class="page active" id="page-recognize">
+      <h2 class="section-title">Live Recognition & Translation</h2>
+      <p class="section-subtitle">Show signs to the camera • 1 hand = alphabet • 2 hands = word</p>
+
+      <div class="p1-grid">
+        <!-- Camera Feed -->
+        <div class="p1-feed-card">
+          <div class="p1-feed-header">
+            <div class="title">
+              <span>📷</span> Camera Feed
+            </div>
+            <div class="live-indicator" id="live-indicator">LIVE</div>
+          </div>
+          <img id="video-feed" src="/video_feed" alt="Live webcam feed" />
+          <div class="p1-buffer-bar">
+            <span style="color: var(--text-secondary); font-size: 0.8rem;">Word Buffer</span>
+            <div class="progress-track">
+              <div class="progress-fill" id="buffer-progress" style="width: 0%;"></div>
+            </div>
+            <span class="p1-buffer-label" id="buffer-label">0/{{ sequence_length }}</span>
+          </div>
+        </div>
+
+        <!-- Sidebar: Controls + Prediction -->
+        <div class="p1-sidebar">
+          <!-- Router Mode -->
+          <div class="card">
+            <div class="card-title"><span class="icon">🧠</span> MoE Router</div>
+            <div id="mode-badge" class="badge badge-idle" style="font-size: 0.8rem;">⬜ IDLE — No Hands</div>
+          </div>
+
+          <!-- Prediction Hero -->
+          <div class="card prediction-hero">
+            <div class="card-title"><span class="icon">🔍</span> Detected Sign</div>
+            <div class="prediction-sign" id="pred-sign">—</div>
+            <div class="prediction-conf">
+              Confidence: <span class="value" id="pred-conf">0.0%</span>
+            </div>
+            <div class="translation-box">
+              <div class="translation-text" id="pred-translation">—</div>
+              <div class="translation-lang" id="pred-lang-label">English</div>
+            </div>
+          </div>
+
+          <!-- Language & TTS -->
+          <div class="card">
+            <div class="card-title"><span class="icon">🌍</span> Translation Controls</div>
+            <div class="control-row">
+              <label>Language</label>
+              <select class="input" id="language-select">
+                {% for lang in languages %}
+                <option value="{{ lang }}" {% if lang == 'English' %}selected{% endif %}>{{ lang }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="control-row" style="margin-top: 12px;">
+              <label>TTS</label>
+              <div class="toggle-wrapper">
+                <div class="toggle on" id="tts-toggle"></div>
+                <span class="toggle-label" id="tts-label">Enabled</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PAGE 2: TEACH CUSTOM GESTURE ─────────────────────────────── -->
+    <div class="page" id="page-teach">
+      <h2 class="section-title">Teach Custom Gesture</h2>
+      <p class="section-subtitle">Record a new word gesture, train the model, and use it instantly</p>
+
+      <div class="p2-grid">
+        <!-- Camera Preview -->
+        <div>
+          <div class="p2-feed-container">
+            <img id="teach-feed" src="/video_feed" alt="Teaching preview" />
+            <div class="p2-overlay-badge" id="teach-badge">
+              <span>🎬</span> Preview
+            </div>
+          </div>
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-title"><span class="icon">💡</span> Tips</div>
+            <ul style="list-style: none; padding: 0; font-size: 0.85rem; color: var(--text-secondary);">
+              <li style="margin-bottom: 6px;">✅ Use <strong>both hands</strong> for word gestures</li>
+              <li style="margin-bottom: 6px;">✅ Record {{ num_recordings }} clear samples minimum</li>
+              <li style="margin-bottom: 6px;">✅ Good lighting improves accuracy</li>
+              <li>✅ After training, test on the Recognition page</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Steps & Controls -->
+        <div class="p2-steps">
+          <div class="card p2-step-card">
+            <div class="p2-step-num" id="step1-num">1</div>
+            <div class="p2-step-content">
+              <div class="p2-step-title">Name Your Gesture</div>
+              <div class="p2-step-desc">Enter a label for the new sign you want to teach</div>
+              <input type="text" class="input" id="teach-label" placeholder="e.g. WATER, HELLO" style="margin-top: 10px;" />
+            </div>
+          </div>
+
+          <div class="card p2-step-card">
+            <div class="p2-step-num" id="step2-num">2</div>
+            <div class="p2-step-content">
+              <div class="p2-step-title">Record Samples</div>
+              <div class="p2-step-desc">Record {{ num_recordings }} clips of {{ sequence_length }} frames each</div>
+              <div style="display: flex; align-items: center; gap: 16px; margin-top: 12px;">
+                <div class="p2-rec-counter" id="teach-rec-count">0</div>
+                <span style="color: var(--text-muted); font-size: 0.85rem;">/ {{ num_recordings }} recordings</span>
+              </div>
+              <div class="progress-track" style="margin-top: 8px;">
+                <div class="progress-fill" id="teach-rec-progress" style="width: 0%;"></div>
+              </div>
+              <button class="btn btn-primary" style="margin-top: 12px; width: 100%;" id="btn-teach-record">
+                🎥 Start Recording
+              </button>
+              <div id="teach-rec-status" style="font-size: 0.8rem; color: var(--amber); margin-top: 8px; min-height: 1.2em;"></div>
+            </div>
+          </div>
+
+          <div class="card p2-step-card">
+            <div class="p2-step-num" id="step3-num">3</div>
+            <div class="p2-step-content">
+              <div class="p2-step-title">Train the Model</div>
+              <div class="p2-step-desc">Fine-tune the Word Expert with your recordings</div>
+              <div class="progress-track" style="margin-top: 10px;">
+                <div class="progress-fill" id="teach-train-progress" style="width: 0%;"></div>
+              </div>
+              <div id="teach-train-status" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px; min-height: 1.2em;"></div>
+              <div style="display: flex; gap: 8px; margin-top: 12px;">
+                <button class="btn btn-purple" id="btn-teach-train" disabled style="flex: 1;">🧠 Train Model</button>
+                <button class="btn btn-danger" id="btn-teach-reset">🔄 Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PAGE 3: 3D ANIMATION & LEARN GESTURES ────────────────────── -->
+    <div class="page" id="page-3d">
+      <h2 class="section-title">3D Hand Model & Gesture Reference</h2>
+      <p class="section-subtitle">Explore ASL hand shapes with an interactive 3D model • Click any letter to learn the gesture</p>
+
+      <div class="p3-grid">
+        <!-- 3D Viewer -->
+        <div>
+          <div class="p3-3d-container" id="hand-3d-container">
+            <canvas id="hand-canvas"></canvas>
+            <div class="p3-3d-controls" id="letter-controls">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Gesture Info -->
+        <div>
+          <div class="card p3-gesture-info">
+            <div class="p3-gesture-name" id="gesture-3d-letter">A</div>
+            <div class="p3-gesture-desc" id="gesture-3d-desc">Fist with thumb alongside</div>
+            <div style="margin: 16px 0;">
+              <div class="card-title"><span class="icon">🖐️</span> Finger Positions</div>
+              <div class="p3-finger-bars" id="finger-bars">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+            <div class="badge badge-success" id="gesture-3d-badge">Recognized by model</div>
+          </div>
+
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-title"><span class="icon">📖</span> How to Sign</div>
+            <ol id="gesture-instructions" style="padding-left: 20px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
+              <li>Make a fist with your dominant hand</li>
+              <li>Place your thumb flat against the side of your fist</li>
+              <li>Face your palm towards the viewer</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gesture Gallery -->
+      <div class="p3-gallery-title">
+        <h2 class="section-title" style="margin-bottom: 0;">Gesture Reference Library</h2>
+        <span class="badge badge-alpha" id="gallery-count">26 Alphabets</span>
+      </div>
+      <div class="p3-gallery" id="gesture-gallery">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- ─── PAGE 4: HISTORY & ANALYTICS ──────────────────────────────── -->
+    <div class="page" id="page-history">
+      <h2 class="section-title">Prediction History & Analytics</h2>
+      <p class="section-subtitle">Track your sign language recognition sessions</p>
+
+      <!-- Stats Cards -->
+      <div class="p4-stats-grid" id="stats-grid">
+        <div class="card p4-stat-card">
+          <div class="p4-stat-value" id="stat-alpha">0</div>
+          <div class="p4-stat-label">Alphabets</div>
+        </div>
+        <div class="card p4-stat-card">
+          <div class="p4-stat-value" id="stat-words">0</div>
+          <div class="p4-stat-label">Words</div>
+        </div>
+        <div class="card p4-stat-card">
+          <div class="p4-stat-value" id="stat-custom">0</div>
+          <div class="p4-stat-label">Custom</div>
+        </div>
+        <div class="card p4-stat-card">
+          <div class="p4-stat-value" id="stat-predictions">0</div>
+          <div class="p4-stat-label">Predictions</div>
+        </div>
+        <div class="card p4-stat-card">
+          <div class="p4-stat-value" id="stat-cache">0</div>
+          <div class="p4-stat-label">Cached</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="p4-header-row">
+        <div></div>
+        <div class="p4-actions">
+          <button class="btn btn-secondary" id="btn-refresh-history">🔄 Refresh</button>
+          <button class="btn btn-danger" id="btn-clear-history">🗑 Clear All</button>
+        </div>
+      </div>
+
+      <div class="p4-table-container" id="history-table-container">
+        <table class="p4-table">
+          <thead>
+            <tr>
+              <th data-sort="timestamp">Timestamp ↕</th>
+              <th data-sort="predicted_label">Sign ↕</th>
+              <th data-sort="confidence_score">Confidence ↕</th>
+              <th data-sort="target_language">Language ↕</th>
+              <th data-sort="translated_text">Translation ↕</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+      <div class="p4-empty" id="history-empty" style="display: none;">
+        <div class="p4-empty-icon">📭</div>
+        <div>No predictions yet. Start the camera and show some signs!</div>
+      </div>
+    </div>
+
+  </div><!-- /page-container -->
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       JAVASCRIPT
+       ═══════════════════════════════════════════════════════════════════ -->
+  <script>
+    // ═══ Helpers ═══════════════════════════════════════════════════════
+    async function post(url, body) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Request failed'); return null; }
+      return data;
+    }
+
+    // ═══ Navigation ═══════════════════════════════════════════════════
+    const tabs = document.querySelectorAll('.nav-tab');
+    const pages = document.querySelectorAll('.page');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.page;
+        tabs.forEach(t => t.classList.remove('active'));
+        pages.forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(target).classList.add('active');
+
+        // Page-specific hooks
+        if (target === 'page-history') { refreshHistory(); refreshStats(); }
+        if (target === 'page-3d' && !hand3dInitialized) { initHand3D(); }
+      });
+    });
+
+    // ═══ PAGE 1 — Recognition State Polling ═══════════════════════════
+    const SEQUENCE_LENGTH = {{ sequence_length }};
+    const NUM_RECORDINGS = {{ num_recordings }};
+
+    const modeBadgeMap = {
+      'IDLE':     { text: '⬜ IDLE — No Hands',      cls: 'badge-idle' },
+      'ALPHABET': { text: '🔤 ALPHABET — 1 Hand',    cls: 'badge-alpha' },
+      'WORD':     { text: '💬 WORD — 2 Hands',        cls: 'badge-word' },
+    };
+
+    async function pollState() {
+      try {
+        const s = await fetch('/api/state').then(r => r.json());
+
+        // Prediction
+        document.getElementById('pred-sign').textContent = s.label || '—';
+        document.getElementById('pred-conf').textContent =
+          s.confidence ? (s.confidence * 100).toFixed(1) + '%' : '0.0%';
+        document.getElementById('pred-translation').textContent = s.translation || '—';
+
+        // Mode badge
+        const badge = modeBadgeMap[s.mode] || modeBadgeMap['IDLE'];
+        const el = document.getElementById('mode-badge');
+        el.textContent = badge.text;
+        el.className = 'badge ' + badge.cls;
+
+        // Buffer bar
+        const fill = s.word_buffer_fill || 0;
+        document.getElementById('buffer-progress').style.width =
+          (fill / SEQUENCE_LENGTH * 100) + '%';
+        document.getElementById('buffer-label').textContent =
+          fill + '/' + SEQUENCE_LENGTH;
+
+        // Teach tab state
+        document.getElementById('teach-rec-count').textContent = s.recordings_count || 0;
+        document.getElementById('teach-rec-progress').style.width =
+          ((s.recordings_count || 0) / NUM_RECORDINGS * 100) + '%';
+        document.getElementById('teach-rec-status').textContent = s.rec_status || '';
+        document.getElementById('teach-train-status').textContent = s.train_progress || '';
+
+        const recBtn = document.getElementById('btn-teach-record');
+        const trainBtn = document.getElementById('btn-teach-train');
+        recBtn.disabled = s.recording_active || s.train_running;
+        trainBtn.disabled = s.train_running || (s.recordings_count || 0) < 5;
+
+        if (s.recording_active) {
+          document.getElementById('teach-badge').innerHTML = '<div class="p2-rec-dot"></div> REC';
+        } else {
+          document.getElementById('teach-badge').innerHTML = '<span>🎬</span> Preview';
+        }
+
+        // Status dot
+        document.getElementById('status-dot').className = 'status-dot';
+        document.getElementById('status-text').textContent = s.mode + ' mode';
+
+      } catch(err) {
+        document.getElementById('status-dot').className = 'status-dot offline';
+        document.getElementById('status-text').textContent = 'Connecting…';
+      }
+    }
+    setInterval(pollState, 500);
+    pollState();
+
+    // ═══ PAGE 1 — Controls ═══════════════════════════════════════════
+    document.getElementById('language-select').addEventListener('change', async (e) => {
+      await post('/api/set_language', { language: e.target.value });
+      document.getElementById('pred-lang-label').textContent = e.target.value;
+    });
+
+    const ttsToggle = document.getElementById('tts-toggle');
+    const ttsLabel = document.getElementById('tts-label');
+    ttsToggle.addEventListener('click', async () => {
+      const isOn = ttsToggle.classList.toggle('on');
+      ttsLabel.textContent = isOn ? 'Enabled' : 'Disabled';
+      await post('/api/set_tts', { enabled: isOn });
+    });
+
+    // ═══ PAGE 2 — Teach Custom Sign ══════════════════════════════════
+    document.getElementById('btn-teach-record').addEventListener('click', async () => {
+      const label = document.getElementById('teach-label').value.trim();
+      if (!label) { alert('Enter a gesture label first.'); return; }
+
+      const btn = document.getElementById('btn-teach-record');
+      const status = document.getElementById('teach-rec-status');
+      btn.disabled = true;
+
+      for (let n = 3; n > 0; n--) {
+        status.textContent = 'Get ready… ' + n;
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      status.textContent = 'Recording…';
+      await post('/api/start_recording', { label });
+    });
+
+    document.getElementById('btn-teach-train').addEventListener('click', () => {
+      post('/api/train', {});
+    });
+
+    document.getElementById('btn-teach-reset').addEventListener('click', () => {
+      post('/api/reset', {});
+      document.getElementById('teach-label').value = '';
+      document.getElementById('teach-train-status').textContent = '';
+    });
+
+    // ═══ PAGE 3 — 3D Hand Model (Three.js) ══════════════════════════
+    let hand3dInitialized = false;
+    let handPoseData = {};
+    let currentLetter = 'A';
+    let scene, camera, renderer, handGroup;
+
+    // finger names for display
+    const FINGER_NAMES = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
+    const FINGER_KEYS = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+    const FINGER_COLORS = ['#f59e0b', '#38bdf8', '#22c55e', '#7c3aed', '#ec4899'];
+
+    async function loadHandPoses() {
+      try {
+        handPoseData = await fetch('/api/hand_poses').then(r => r.json());
+      } catch(e) { console.error('Failed to load hand poses', e); }
+    }
+
+    function initHand3D() {
+      if (hand3dInitialized) return;
+      hand3dInitialized = true;
+
+      const container = document.getElementById('hand-3d-container');
+      const canvas = document.getElementById('hand-canvas');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0c0c1d);
+
+      // Add subtle ambient fog
+      scene.fog = new THREE.FogExp2(0x0c0c1d, 0.015);
+
+      camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
+      camera.position.set(0, 2, 8);
+      camera.lookAt(0, 1, 0);
+
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      // Lights
+      const ambient = new THREE.AmbientLight(0x444466, 0.6);
+      scene.add(ambient);
+
+      const key = new THREE.DirectionalLight(0xffffff, 0.8);
+      key.position.set(4, 8, 6);
+      key.castShadow = true;
+      scene.add(key);
+
+      const fill = new THREE.PointLight(0x00e5cc, 0.5, 20);
+      fill.position.set(-3, 3, 4);
+      scene.add(fill);
+
+      const rim = new THREE.PointLight(0x7c3aed, 0.3, 15);
+      rim.position.set(3, 1, -3);
+      scene.add(rim);
+
+      // Ground plane
+      const groundGeo = new THREE.PlaneGeometry(20, 20);
+      const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a0a1e, roughness: 0.9 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Build the hand
+      handGroup = new THREE.Group();
+      scene.add(handGroup);
+      buildHand();
+
+      // Rotation animation
+      let rotY = 0;
+      function animate() {
+        requestAnimationFrame(animate);
+        rotY += 0.003;
+        handGroup.rotation.y = Math.sin(rotY) * 0.3;
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // Resize handler
+      window.addEventListener('resize', () => {
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+
+      // Build letter buttons
+      buildLetterControls();
+
+      // Build gallery
+      buildGestureGallery();
+
+      // Show first letter
+      showLetter('A');
+    }
+
+    function buildHand() {
+      // Simplified 3D hand using cylinders and spheres
+      const skinColor = 0xf4c7a1;
+      const jointColor = 0xd4a680;
+
+      const jointMat = new THREE.MeshStandardMaterial({
+        color: jointColor, roughness: 0.6, metalness: 0.1
+      });
+      const boneMat = new THREE.MeshStandardMaterial({
+        color: skinColor, roughness: 0.5, metalness: 0.05
+      });
+
+      // Palm
+      const palmGeo = new THREE.BoxGeometry(2.2, 0.5, 2.5);
+      const palm = new THREE.Mesh(palmGeo, boneMat);
+      palm.position.set(0, 2, 0);
+      palm.castShadow = true;
+      handGroup.add(palm);
+
+      // Wrist
+      const wristGeo = new THREE.CylinderGeometry(0.5, 0.6, 1, 12);
+      const wrist = new THREE.Mesh(wristGeo, boneMat);
+      wrist.position.set(0, 1.2, 0);
+      wrist.castShadow = true;
+      handGroup.add(wrist);
+
+      // Fingers — each finger has 3 segments (bones)
+      const fingerOffsets = [
+        { x: -1.1, z: -0.6, len: [0.7, 0.5, 0.4], radius: 0.16, name: 'thumb' },
+        { x: -0.6, z: 1.2,  len: [0.8, 0.6, 0.5], radius: 0.14, name: 'index' },
+        { x: -0.05, z: 1.3, len: [0.9, 0.7, 0.5], radius: 0.14, name: 'middle' },
+        { x: 0.5,  z: 1.2,  len: [0.8, 0.6, 0.45], radius: 0.13, name: 'ring' },
+        { x: 0.95, z: 1.0,  len: [0.6, 0.45, 0.35], radius: 0.12, name: 'pinky' },
+      ];
+
+      handGroup._fingers = {};
+
+      fingerOffsets.forEach(f => {
+        const fingerGroup = new THREE.Group();
+        fingerGroup.position.set(f.x, 2.25, f.z);
+
+        const segments = [];
+        let yOff = 0;
+
+        f.len.forEach((len, i) => {
+          // Joint sphere
+          const jointGeo = new THREE.SphereGeometry(f.radius * 1.15, 8, 8);
+          const joint = new THREE.Mesh(jointGeo, jointMat);
+          joint.position.set(0, yOff, 0);
+          joint.castShadow = true;
+          fingerGroup.add(joint);
+
+          // Bone cylinder
+          const boneGeo = new THREE.CylinderGeometry(f.radius, f.radius * 0.95, len, 8);
+          const bone = new THREE.Mesh(boneGeo, boneMat);
+          bone.position.set(0, yOff + len / 2, 0);
+          bone.castShadow = true;
+          fingerGroup.add(bone);
+
+          segments.push({ joint, bone, len });
+          yOff += len;
+        });
+
+        // Fingertip
+        const tipGeo = new THREE.SphereGeometry(f.radius, 8, 8);
+        const tip = new THREE.Mesh(tipGeo, boneMat);
+        tip.position.set(0, yOff, 0);
+        tip.castShadow = true;
+        fingerGroup.add(tip);
+
+        handGroup.add(fingerGroup);
+        handGroup._fingers[f.name] = { group: fingerGroup, segments, curl: 0 };
+      });
+    }
+
+    function setCurl(fingerName, curl) {
+      // curl: 0 = fully extended, 1 = fully curled
+      const finger = handGroup._fingers[fingerName];
+      if (!finger) return;
+
+      const angle = curl * -Math.PI * 0.45;  // max ~80 degrees per joint
+      let yOff = 0;
+
+      finger.segments.forEach((seg, i) => {
+        seg.joint.position.y = yOff;
+        seg.bone.position.y = yOff + seg.len / 2;
+
+        if (i > 0) {
+          seg.joint.rotation.x = angle;
+          seg.bone.rotation.x = angle;
+        }
+        yOff += seg.len;
+      });
+
+      // Rotate entire finger group for curl effect
+      finger.group.rotation.x = angle * 0.6;
+
+      // Special handling for thumb
+      if (fingerName === 'thumb') {
+        finger.group.rotation.z = curl * 0.3;
+      }
+
+      finger.curl = curl;
+    }
+
+    function showLetter(letter) {
+      currentLetter = letter;
+      const pose = handPoseData[letter];
+      if (!pose) return;
+
+      // Animate finger curls
+      FINGER_KEYS.forEach(key => {
+        const val = pose.fingers[key] || 0;
+        setCurl(key, val);
+      });
+
+      // Apply wrist rotation
+      if (pose.wrist_rotation) {
+        handGroup.rotation.x = pose.wrist_rotation[0] * 0.5;
+        handGroup.rotation.z = pose.wrist_rotation[2] * 0.5;
+      } else {
+        handGroup.rotation.x = 0;
+        handGroup.rotation.z = 0;
+      }
+
+      // Update info panel
+      document.getElementById('gesture-3d-letter').textContent = letter;
+      document.getElementById('gesture-3d-desc').textContent = pose.description || '';
+
+      // Update finger bars
+      const barsEl = document.getElementById('finger-bars');
+      barsEl.innerHTML = FINGER_NAMES.map((name, i) => {
+        const val = pose.fingers[FINGER_KEYS[i]] || 0;
+        const pct = val * 100;
+        const barColor = pct > 60 ? 'var(--red)' : pct > 30 ? 'var(--amber)' : 'var(--green)';
+        const label = pct > 60 ? 'Curled' : pct > 30 ? 'Partial' : 'Extended';
+        return `
+          <div class="p3-finger-row">
+            <span class="p3-finger-name">${name}</span>
+            <div class="p3-finger-bar">
+              <div class="p3-finger-fill" style="width:${pct}%; background:${barColor};"></div>
+            </div>
+            <span class="p3-finger-val">${label}</span>
+          </div>`;
+      }).join('');
+
+      // Update instructions
+      const instrEl = document.getElementById('gesture-instructions');
+      const instructions = generateInstructions(letter, pose);
+      instrEl.innerHTML = instructions.map(s => `<li>${s}</li>`).join('');
+
+      // Update gallery active state
+      document.querySelectorAll('.p3-gallery-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.letter === letter);
+      });
+
+      // Update letter button active state
+      document.querySelectorAll('.p3-letter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.letter === letter);
+      });
+    }
+
+    function generateInstructions(letter, pose) {
+      const steps = [];
+      const curled = [];
+      const extended = [];
+      FINGER_KEYS.forEach((key, i) => {
+        const val = pose.fingers[key] || 0;
+        if (val > 0.6) curled.push(FINGER_NAMES[i]);
+        else if (val < 0.3) extended.push(FINGER_NAMES[i]);
+      });
+
+      if (curled.length > 0 && curled.length <= 4) {
+        steps.push(`Curl your ${curled.join(', ').toLowerCase()} finger(s) into your palm`);
+      }
+      if (extended.length > 0 && extended.length <= 4) {
+        steps.push(`Extend your ${extended.join(', ').toLowerCase()} finger(s) straight up`);
+      }
+      if (curled.length === 5) steps.push('Make a tight fist with all fingers');
+      if (extended.length === 5) steps.push('Open your hand flat with all fingers extended');
+
+      steps.push(pose.description || 'Form the shape shown in the 3D model');
+      steps.push('Face your palm towards the camera');
+      return steps;
+    }
+
+    function buildLetterControls() {
+      const container = document.getElementById('letter-controls');
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      // Show subset in controls (full set in gallery)
+      const subset = 'ABCDEFGHIJ';
+      container.innerHTML = subset.split('').map(l =>
+        `<button class="p3-letter-btn ${l === 'A' ? 'active' : ''}" data-letter="${l}">${l}</button>`
+      ).join('') + `<button class="p3-letter-btn" style="font-size:0.7rem;">…</button>`;
+
+      container.querySelectorAll('.p3-letter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.dataset.letter) showLetter(btn.dataset.letter);
+        });
+      });
+    }
+
+    function buildGestureGallery() {
+      const gallery = document.getElementById('gesture-gallery');
+      gallery.innerHTML = Object.entries(handPoseData).map(([letter, pose]) =>
+        `<div class="p3-gallery-item ${letter === 'A' ? 'active' : ''}" data-letter="${letter}">
+          <div class="p3-gallery-letter">${letter}</div>
+          <div class="p3-gallery-desc">${pose.description || ''}</div>
+        </div>`
+      ).join('');
+
+      gallery.querySelectorAll('.p3-gallery-item').forEach(item => {
+        item.addEventListener('click', () => {
+          showLetter(item.dataset.letter);
+        });
+      });
+
+      document.getElementById('gallery-count').textContent =
+        Object.keys(handPoseData).length + ' Gestures';
+    }
+
+    // Load hand poses on page load
+    loadHandPoses();
+
+    // ═══ PAGE 4 — History & Analytics ═════════════════════════════════
+    let historyData = [];
+    let sortCol = 'timestamp';
+    let sortAsc = false;
+
+    async function refreshHistory() {
+      try {
+        historyData = await fetch('/api/history?limit=200').then(r => r.json());
+        renderHistoryTable();
+      } catch(e) { console.error('History fetch failed', e); }
+    }
+
+    async function refreshStats() {
+      try {
+        const s = await fetch('/api/stats').then(r => r.json());
+        document.getElementById('stat-alpha').textContent = s.alphabet_gestures || 0;
+        document.getElementById('stat-words').textContent = s.word_gestures || 0;
+        document.getElementById('stat-custom').textContent = s.custom_gestures || 0;
+        document.getElementById('stat-predictions').textContent = s.history_entries || 0;
+        document.getElementById('stat-cache').textContent = s.cache_entries || 0;
+      } catch(e) {}
+    }
+
+    function renderHistoryTable() {
+      const tbody = document.getElementById('history-tbody');
+      const empty = document.getElementById('history-empty');
+      const container = document.getElementById('history-table-container');
+
+      if (!historyData.length) {
+        container.style.display = 'none';
+        empty.style.display = '';
+        return;
+      }
+      container.style.display = '';
+      empty.style.display = 'none';
+
+      // Sort
+      const sorted = [...historyData].sort((a, b) => {
+        let va = a[sortCol], vb = b[sortCol];
+        if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return sortAsc ? va - vb : vb - va;
+      });
+
+      tbody.innerHTML = sorted.map(r => {
+        const conf = r.confidence_score != null
+          ? (r.confidence_score * 100).toFixed(1) + '%'
+          : '—';
+        return `<tr>
+          <td>${r.timestamp || '—'}</td>
+          <td style="color:var(--accent);font-weight:600;">${r.predicted_label || '—'}</td>
+          <td><span class="badge ${parseFloat(conf) > 90 ? 'badge-success' : parseFloat(conf) > 70 ? 'badge-warn' : 'badge-danger'}">${conf}</span></td>
+          <td>${r.target_language || '—'}</td>
+          <td style="color:var(--amber);">${r.translated_text || '—'}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Table sorting
+    document.querySelectorAll('.p4-table th').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (sortCol === col) sortAsc = !sortAsc;
+        else { sortCol = col; sortAsc = false; }
+        renderHistoryTable();
+      });
+    });
+
+    document.getElementById('btn-refresh-history').addEventListener('click', () => {
+      refreshHistory(); refreshStats();
+    });
+
+    document.getElementById('btn-clear-history').addEventListener('click', async () => {
+      if (!confirm('Clear ALL prediction history?')) return;
+      await post('/api/clear_history', {});
+      refreshHistory(); refreshStats();
+    });
+
+    // Initial load
+    refreshHistory();
+    refreshStats();
+  </script>
+</body>
+</html>

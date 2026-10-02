@@ -113,6 +113,13 @@ class GesturePredictor:
                 if self._alpha_model_path.exists():
                     self._alpha_model = tf.keras.models.load_model(
                         str(self._alpha_model_path), compile=False)
+                    # Explicitly build so layers have defined input shapes
+                    # (.h5 format doesn't always restore build state)
+                    try:
+                        self._alpha_model.build(
+                            input_shape=(None, config.ALPHABET_NUM_FEATURES))
+                    except Exception:
+                        pass  # already built — safe to ignore
                     @tf.function(experimental_relax_shapes=True)
                     def _alpha_pred(x):
                         return self._alpha_model(x, training=False)
@@ -154,6 +161,14 @@ class GesturePredictor:
                 if self._word_model_path.exists():
                     self._word_model = tf.keras.models.load_model(
                         str(self._word_model_path), compile=False)
+                    # Explicitly build so layers have defined input shapes
+                    # (.h5 format doesn't always restore build state)
+                    try:
+                        self._word_model.build(
+                            input_shape=(None, config.SEQUENCE_LENGTH,
+                                         config.WORD_NUM_FEATURES))
+                    except Exception:
+                        pass  # already built — safe to ignore
                     @tf.function(experimental_relax_shapes=True)
                     def _word_pred(x):
                         return self._word_model(x, training=False)

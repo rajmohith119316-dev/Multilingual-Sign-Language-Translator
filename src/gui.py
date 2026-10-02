@@ -718,9 +718,9 @@ class TeachNewSignTab(ttk.Frame):
         if self._after:
             self.after_cancel(self._after)
             self._after = None
-        if self._stream:
-            self._stream.stop()
-            self._stream = None
+
+        # Do NOT release the camera here — keep it alive for the next recording.
+        # The stream is only torn down by _stop_camera() (tab switch / app close).
 
         if success and len(self._frame_buf) >= 20:
             from src.utils import pad_or_sample_sequence
@@ -740,6 +740,8 @@ class TeachNewSignTab(ttk.Frame):
             self._rec_status.set("Recording discarded (too few frames).")
 
         self._rec_btn.config(state="normal")
+        # Resume live preview so the camera feed stays visible between recordings
+        self._preview_tick()
 
     # ── Training ───────────────────────────────────────────────────────────────
 

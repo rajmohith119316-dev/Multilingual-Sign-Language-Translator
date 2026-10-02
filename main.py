@@ -1,13 +1,14 @@
 """
-main.py — Application Entry Point (MoE Edition)
-Validates the environment, initialises all components, and launches the GUI.
+main.py — Application Entry Point (MoE Edition, Flask Web UI)
+
+Validates the environment, then starts the localhost Flask server.
+The camera never opens a cv2.imshow / Tkinter window: frames are streamed
+to the browser as MJPEG until you press Ctrl+C in this terminal.
 """
 
 import logging
 import sys
-import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox
 
 # ── Logging setup (before any project imports) ────────────────────────────────
 _LOG_DIR = Path(__file__).resolve().parent / "logs"
@@ -24,13 +25,9 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 import config
-from src.database_manager import DatabaseManager
-from src.predict import GesturePredictor
-from src.translator import AudioTranslator
-from src.gui import App
+import web_app
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 def _check_task_file() -> list[str]:
     """Auto-download hand_landmarker.task if missing. Returns warning strings."""
     warnings: list[str] = []
@@ -62,7 +59,7 @@ def _check_packages() -> list[str]:
         "joblib":          "joblib",
         "deep_translator": "deep-translator",
         "pyttsx3":         "pyttsx3",
-        "PIL":             "Pillow",
+        "flask":           "Flask",
         "pandas":          "pandas",
     }
     missing = []
@@ -85,7 +82,6 @@ def _validate_environment() -> list[str]:
     warnings += _check_task_file()
     warnings += _check_packages()
 
-    # Non-fatal: models may not exist yet (train first)
     if not config.ALPHABET_MODEL_PATH.exists():
         logger.info(
             f"[INFO] Alphabet Expert not found at {config.ALPHABET_MODEL_PATH}. "
@@ -99,79 +95,51 @@ def _validate_environment() -> list[str]:
     return warnings
 
 
-def _fatal(msg: str) -> None:
-    _t = tk.Tk(); _t.withdraw()
-    messagebox.showerror("Fatal Error", msg)
-    _t.destroy()
-    sys.exit(1)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 def main() -> None:
     logger.info("=" * 65)
-    logger.info("Starting %s", config.GUI_TITLE)
+    logger.info("Starting %s (Web Edition)", config.GUI_TITLE)
     logger.info("BASE_DIR : %s", config.BASE_DIR)
     logger.info("DB_PATH  : %s", config.DB_PATH)
     logger.info("=" * 65)
 
-    # Ensure all directories exist
     for d in (config.DATA_DIR, config.MODEL_DIR, config.LOGS_DIR,
               config.RAW_ALPHABETS_DIR, config.RAW_WORDS_DIR,
               config.PROCESSED_ALPHABETS_DIR, config.PROCESSED_WORDS_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
-    # Environment checks
     warnings = _validate_environment()
     if warnings:
-        logger.warning("Setup Warnings:\n\n" + "\n\n".join(warnings) + 
-                       "\n\nThe app will launch with limited functionality until setup is complete.")
-
-    # ── Database ──────────────────────────────────────────────────────────────
-    logger.info("Initialising database…")
-    try:
-        db = DatabaseManager(config.DB_PATH)
-        stats = db.get_stats()
-        logger.info("DB stats: %s", stats)
-    except Exception as exc:
-        logger.critical("Database init failed: %s", exc)
-        _fatal(f"Database error:\n{exc}")
-        return
-
-    # ── MoE Predictor ─────────────────────────────────────────────────────────
-    logger.info("Initialising MoE Predictor…")
-    try:
-        predictor = GesturePredictor()
-    except Exception as exc:
-        logger.error("GesturePredictor init error: %s", exc)
-        _fatal(f"Predictor error:\n{exc}\n\nThe app cannot start.")
-        return
-
-    # ── Translator + TTS ──────────────────────────────────────────────────────
-    logger.info("Initialising translator…")
-    try:
-        translator = AudioTranslator(
-            db_manager=db,
-            target_language_code=config.SUPPORTED_LANGUAGES[config.DEFAULT_LANGUAGE],
-            tts_enabled=config.TTS_ENABLED_DEFAULT,
+        logger.warning(
+            "Setup Warnings:\n\n" + "\n\n".join(warnings)
+            + "\n\nThe app will launch with limited functionality until setup is complete."
         )
-        translator.wait_tts_ready(timeout=4.0)
-    except Exception as exc:
-        logger.warning("Translator init warning (TTS may be disabled): %s", exc)
-        translator = AudioTranslator(db_manager=db, tts_enabled=False)
 
-    # ── Launch GUI ────────────────────────────────────────────────────────────
-    logger.info("Launching GUI…")
+    # Open camera + load models once. Frames go to /video_feed, not a desktop window.
+    web_app.init_components()
+
+    print("\n" + "=" * 60)
+    print("  Open http://127.0.0.1:5000 in your browser")
+    print("  Press Ctrl+C in this terminal to stop")
+    print("=" * 60 + "\n")
+
     try:
-        app = App(predictor=predictor, db=db, translator=translator)
-        app.mainloop()
+        web_app.app.run(
+            host="127.0.0.1",
+            port=5000,
+            debug=False,
+            threaded=True,
+            use_reloader=False,
+        )
     except KeyboardInterrupt:
-        logger.info("Interrupted by user.")
-    except Exception as exc:                # noqa: BLE001
-        logger.critical("Unhandled exception: %s", exc, exc_info=True)
+        logger.info("Interrupted by user (Ctrl+C).")
     finally:
         logger.info("Application exiting.")
-        if predictor:
-            predictor.close()
+        with web_app.cap_lock:
+            if web_app.cap is not None and web_app.cap.isOpened():
+                web_app.cap.release()
+                logger.info("Camera released.")
+        if web_app.predictor:
+            web_app.predictor.close()
 
 
 if __name__ == "__main__":

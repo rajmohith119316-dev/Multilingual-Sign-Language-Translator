@@ -11,9 +11,10 @@ pandas>=2.2.0
 deep-translator>=1.11.4
 pyttsx3>=2.90
 
-# ── GUI / Image ────────────────────────────────────────────────────────────────
+# ── Web UI / Image ────────────────────────────────────────────────────────────
+Flask>=3.0.0
 Pillow>=10.3.0
-# tkinter is part of the Python 3.11 standard library — no pip install needed
+# tkinter is optional (legacy desktop GUI in src/gui.py)
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 requests>=2.31.0      # for auto-downloading hand_landmarker.task

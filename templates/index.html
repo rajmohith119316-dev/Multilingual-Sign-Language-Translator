@@ -838,8 +838,14 @@
             <div class="p2-step-num" id="step1-num">1</div>
             <div class="p2-step-content">
               <div class="p2-step-title">Name Your Gesture</div>
-              <div class="p2-step-desc">Enter a label for the new sign you want to teach</div>
-              <input type="text" class="input" id="teach-label" placeholder="e.g. WATER, HELLO" style="margin-top: 10px;" />
+              <div class="p2-step-desc">Enter a label and select type for the new sign</div>
+              <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" class="input" id="teach-label" placeholder="e.g. WATER, HELLO" style="flex: 1;" />
+                <select class="input" id="teach-type" style="width: auto;">
+                  <option value="Word">Word (2 Hands)</option>
+                  <option value="Alphabet">Alphabet (1 Hand)</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1109,6 +1115,7 @@
     // ═══ PAGE 2 — Teach Custom Sign ══════════════════════════════════
     document.getElementById('btn-teach-record').addEventListener('click', async () => {
       const label = document.getElementById('teach-label').value.trim();
+      const type = document.getElementById('teach-type').value;
       if (!label) { alert('Enter a gesture label first.'); return; }
 
       const btn = document.getElementById('btn-teach-record');
@@ -1120,7 +1127,7 @@
         await new Promise(r => setTimeout(r, 1000));
       }
       status.textContent = 'Recording…';
-      await post('/api/start_recording', { label });
+      await post('/api/start_recording', { label, type });
     });
 
     document.getElementById('btn-teach-train').addEventListener('click', () => {

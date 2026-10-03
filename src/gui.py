@@ -484,7 +484,7 @@ class LiveTranslatorTab(ttk.Frame):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TeachNewSignTab(ttk.Frame):
-    """Record new dual-hand word gesture → fine-tune Word Expert → hot-reload."""
+    """Record new custom gestures (Alphabet or Word) → fine-tune expert → hot-reload."""
 
     def __init__(self, parent, predictor: GesturePredictor,
                  db: DatabaseManager, **kw):
@@ -529,58 +529,70 @@ class TeachNewSignTab(ttk.Frame):
         right.grid(row=0, column=1, sticky="nsew", padx=(0, 8), pady=8)
         right.columnconfigure(0, weight=1)
 
-        ttk.Label(right, text="New Word Gesture", style="H2.TLabel").grid(
+        ttk.Label(right, text="New Custom Gesture", style="H2.TLabel").grid(
             row=0, column=0, sticky="w", pady=(0, 12))
 
-        ttk.Label(right, text="Gesture Label:", style="Card.TLabel").grid(
+        ttk.Label(right, text="Gesture Type:", style="Card.TLabel").grid(
             row=1, column=0, sticky="w")
+        self._type_var = tk.StringVar(value="Word (2 Hands)")
+        cb = ttk.Combobox(right, textvariable=self._type_var,
+                          values=["Alphabet (1 Hand)", "Word (2 Hands)"],
+                          state="readonly", width=18)
+        cb.grid(row=2, column=0, sticky="ew", pady=(2, 8))
+        cb.bind("<<ComboboxSelected>>", self._on_type_change)
+
+        ttk.Label(right, text="Gesture Label:", style="Card.TLabel").grid(
+            row=3, column=0, sticky="w")
         self._label_entry = ttk.Entry(right, font=("Segoe UI", 12), width=20)
-        self._label_entry.grid(row=2, column=0, sticky="ew", pady=(4, 12))
+        self._label_entry.grid(row=4, column=0, sticky="ew", pady=(4, 12))
 
         ttk.Label(right, text="Recordings:", style="Card.TLabel").grid(
-            row=3, column=0, sticky="w")
+            row=5, column=0, sticky="w")
         self._rec_cnt = tk.StringVar(value=f"0 / {config.TEACH_NUM_RECORDINGS}")
         ttk.Label(right, textvariable=self._rec_cnt,
-                  style="Mono.TLabel").grid(row=4, column=0, sticky="w")
+                  style="Mono.TLabel").grid(row=6, column=0, sticky="w")
 
         ttk.Label(right, text="Training Progress:", style="Card.TLabel").grid(
-            row=5, column=0, sticky="w", pady=(12, 0))
+            row=7, column=0, sticky="w", pady=(12, 0))
         self._train_bar = ttk.Progressbar(right, maximum=7,
                                            style="Teal.Horizontal.TProgressbar")
-        self._train_bar.grid(row=6, column=0, sticky="ew", pady=4)
+        self._train_bar.grid(row=8, column=0, sticky="ew", pady=4)
         self._train_status = tk.StringVar(value="Idle")
         ttk.Label(right, textvariable=self._train_status,
                   style="Muted.TLabel", wraplength=200).grid(
-            row=7, column=0, sticky="w")
+            row=9, column=0, sticky="w")
 
         ttk.Separator(right, orient="horizontal").grid(
-            row=8, column=0, sticky="ew", pady=12)
+            row=10, column=0, sticky="ew", pady=12)
 
         self._rec_btn = ttk.Button(right, text="🎥  Start Recording",
                                     style="Accent.TButton",
                                     command=self._start_recording)
-        self._rec_btn.grid(row=9, column=0, sticky="ew", pady=4)
+        self._rec_btn.grid(row=11, column=0, sticky="ew", pady=4)
 
         self._train_btn = ttk.Button(right, text="🧠  Train Model",
                                       style="Accent.TButton",
                                       command=self._start_train,
                                       state="disabled")
-        self._train_btn.grid(row=10, column=0, sticky="ew", pady=4)
+        self._train_btn.grid(row=12, column=0, sticky="ew", pady=4)
 
         ttk.Button(right, text="🔄  Reset All",
                    style="Danger.TButton",
-                   command=self._reset).grid(row=11, column=0, sticky="ew", pady=(12, 0))
+                   command=self._reset).grid(row=13, column=0, sticky="ew", pady=(12, 0))
 
         ttk.Separator(right, orient="horizontal").grid(
-            row=12, column=0, sticky="ew", pady=12)
+            row=14, column=0, sticky="ew", pady=12)
 
         tips = ("Tips:\n"
-                "• Use BOTH hands for word gestures.\n"
+                "• Select type: 1-Hand Alphabet or 2-Hand Word.\n"
                 "• Perform 10 clear recordings.\n"
                 "• Good lighting improves accuracy.\n"
                 "• After training, test in Live tab.")
         ttk.Label(right, text=tips, style="Muted.TLabel",
-                  justify="left", wraplength=200).grid(row=13, column=0, sticky="w")
+                  justify="left", wraplength=200).grid(row=15, column=0, sticky="w")
+
+    def _on_type_change(self, event=None) -> None:
+        self._reset()
 
     def on_activated(self) -> None:
         self._start_camera()
@@ -689,8 +701,22 @@ class TeachNewSignTab(ttk.Frame):
         frame = mirror_frame(frame)
         left_lm, right_lm, _ = self._pred.detect_hands(frame)
 
-        feat = extract_dual_hand_features(left_lm, right_lm)   # (123,) always
-        self._frame_buf.append(feat)
+        if self._type_var.get() == "Alphabet (1 Hand)":
+            active_lm = left_lm if left_lm is not None else right_lm
+            if active_lm is None:
+                self._rec_status.set("⚠ Show 1 hand!")
+                # Do not append frame if hand is not visible for alphabet
+            else:
+                from src.utils import extract_single_hand_features
+                feat = extract_single_hand_features(active_lm)  # (60,)
+                self._frame_buf.append(feat)
+        else:
+            from src.utils import extract_dual_hand_features
+            if left_lm is not None or right_lm is not None:
+                feat = extract_dual_hand_features(left_lm, right_lm)   # (123,)
+                self._frame_buf.append(feat)
+            else:
+                self._rec_status.set("⚠ Show hand(s) in view!")
 
         if left_lm:
             draw_hand_landmarks(frame, left_lm, color=(50, 200, 255))
@@ -722,20 +748,34 @@ class TeachNewSignTab(ttk.Frame):
         # Do NOT release the camera here — keep it alive for the next recording.
         # The stream is only torn down by _stop_camera() (tab switch / app close).
 
-        if success and len(self._frame_buf) >= 20:
-            from src.utils import pad_or_sample_sequence
-            seq = pad_or_sample_sequence(
-                self._frame_buf, config.SEQUENCE_LENGTH, config.WORD_NUM_FEATURES
-            )
-            self._recordings.append(seq)
-            n = len(self._recordings)
-            self._rec_cnt.set(f"{n} / {config.TEACH_NUM_RECORDINGS}")
-            self._rec_status.set(
-                f"✅ Recording {n} saved."
-                + (" Train when ready!" if n >= 5 else "")
-            )
-            if n >= 5:
-                self._train_btn.config(state="normal")
+        if success and len(self._frame_buf) >= 15:
+            if self._type_var.get() == "Alphabet (1 Hand)":
+                self._recordings.append(self._frame_buf.copy())
+                n = len(self._recordings)
+                self._rec_cnt.set(f"{n} / {config.TEACH_NUM_RECORDINGS}")
+                self._rec_status.set(
+                    f"✅ Recording {n} saved."
+                    + (" Train when ready!" if n >= 5 else "")
+                )
+                if n >= 5:
+                    self._train_btn.config(state="normal")
+            else:
+                from src.utils import pad_or_sample_sequence
+                seq = pad_or_sample_sequence(
+                    self._frame_buf, config.SEQUENCE_LENGTH, config.WORD_NUM_FEATURES
+                )
+                if not np.all(seq == 0):
+                    self._recordings.append(seq)
+                    n = len(self._recordings)
+                    self._rec_cnt.set(f"{n} / {config.TEACH_NUM_RECORDINGS}")
+                    self._rec_status.set(
+                        f"✅ Recording {n} saved."
+                        + (" Train when ready!" if n >= 5 else "")
+                    )
+                    if n >= 5:
+                        self._train_btn.config(state="normal")
+                else:
+                    self._rec_status.set("Recording discarded (no hands detected).")
         else:
             self._rec_status.set("Recording discarded (too few frames).")
 
@@ -751,11 +791,21 @@ class TeachNewSignTab(ttk.Frame):
             messagebox.showwarning("Not Ready", "Record at least 5 samples first.")
             return
 
-        # Save sequences to temp dir
+        # Save sequences/frames to temp dir
         temp_dir = config.TEACH_TEMP_DIR / label
+        if temp_dir.exists():
+            import shutil
+            shutil.rmtree(temp_dir)
         temp_dir.mkdir(parents=True, exist_ok=True)
-        for i, seq in enumerate(self._recordings):
-            np.save(str(temp_dir / f"{i:04d}.npy"), seq)
+        sample_idx = 0
+        for seq_or_frames in self._recordings:
+            if self._type_var.get() == "Alphabet (1 Hand)":
+                for frame in seq_or_frames:
+                    np.save(str(temp_dir / f"{sample_idx:04d}.npy"), frame)
+                    sample_idx += 1
+            else:
+                np.save(str(temp_dir / f"{sample_idx:04d}.npy"), seq_or_frames)
+                sample_idx += 1
 
         self._train_btn.config(state="disabled")
         self._rec_btn.config(state="disabled")
@@ -773,9 +823,11 @@ class TeachNewSignTab(ttk.Frame):
             def cb(step, total, msg):
                 self.after(0, lambda s=step, t=total, m=msg: self._on_prog(s, t, m))
 
+            gesture_type = "Alphabet" if self._type_var.get() == "Alphabet (1 Hand)" else "Word"
             train_new_gesture(
                 new_word_label=label,
                 new_samples_dir=temp_dir,
+                gesture_type=gesture_type,
                 progress_callback=cb,
             )
             self.after(0, self._pred.hot_reload)

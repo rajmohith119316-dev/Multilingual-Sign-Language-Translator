@@ -54,17 +54,19 @@ WORD_NUM_FEATURES     = 123
 SEQUENCE_LENGTH = 30         # frames per word gesture sample
 
 # ─── Inference / Stability Filter ─────────────────────────────────────────────
-CONFIDENCE_THRESHOLD = 0.80  # minimum accepted confidence
-STABILITY_FRAMES     = 5     # consecutive identical predictions needed
+CONFIDENCE_THRESHOLD = 0.70  # minimum accepted confidence
+STABILITY_FRAMES     = 3     # default consecutive identical predictions needed
+WORD_STABILITY_FRAMES     = 2  # word dynamic signs peak briefly in sliding window
+ALPHABET_STABILITY_FRAMES = 3  # alphabet static signs held steady
 
 # ─── Training Hyperparameters ─────────────────────────────────────────────────
 ALPHABET_EPOCHS   = 60
 WORD_EPOCHS       = 50
-FINETUNE_EPOCHS   = 20
+FINETUNE_EPOCHS   = 35
 BATCH_SIZE        = 32
 VALIDATION_SPLIT  = 0.15
 LEARNING_RATE     = 1e-3
-FINETUNE_LR       = 1e-4
+FINETUNE_LR       = 1e-3
 MIN_SAMPLES_CLASS = 3        # skip class if fewer samples
 
 # ─── MediaPipe Settings ───────────────────────────────────────────────────────

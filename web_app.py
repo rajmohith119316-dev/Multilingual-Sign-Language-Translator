@@ -241,6 +241,7 @@ pred_lock = threading.Lock()
 rec_state = {
     "active": False,
     "label": "",
+    "type": "Word",
     "frame_buf": [],
     "recordings": [],
     "status": "idle",
@@ -334,13 +335,26 @@ def generate_frames():
         status_text = f"{mode}  |  Buffer: {predictor.word_buffer_fill}/{config.SEQUENCE_LENGTH}"
         draw_status_bar(frame, status_text)
 
-        # Recording: capture dual-hand features if active
+        # Recording: capture features if active
         with rec_lock:
             if rec_state["active"]:
-                feat = extract_dual_hand_features(left_lm, right_lm)
-                rec_state["frame_buf"].append(feat)
+                if rec_state.get("type") == "Alphabet":
+                    active_lm = left_lm if left_lm is not None else right_lm
+                    if active_lm is not None:
+                        from src.utils import extract_single_hand_features
+                        feat = extract_single_hand_features(active_lm)
+                        rec_state["frame_buf"].append(feat)
+                else:
+                    # For Word: capture when at least one hand is detected in frame
+                    if left_lm is not None or right_lm is not None:
+                        feat = extract_dual_hand_features(left_lm, right_lm)
+                        rec_state["frame_buf"].append(feat)
+                
                 n = len(rec_state["frame_buf"])
-                rec_state["status"] = f"Recording ({n}/{config.SEQUENCE_LENGTH} frames)"
+                if n == 0:
+                    rec_state["status"] = "Waiting for hands in camera view…"
+                else:
+                    rec_state["status"] = f"Recording ({n}/{config.SEQUENCE_LENGTH} frames)"
 
                 cv2.circle(frame, (30, 30), 12, (0, 0, 255), -1)
                 cv2.putText(frame, f"REC {n}/{config.SEQUENCE_LENGTH}",
@@ -364,13 +378,21 @@ def _finish_recording():
     Called (under rec_lock) when SEQUENCE_LENGTH frames have been captured.
     """
     buf = rec_state["frame_buf"]
-    if len(buf) >= 20:
-        seq = pad_or_sample_sequence(buf, config.SEQUENCE_LENGTH, config.WORD_NUM_FEATURES)
-        rec_state["recordings"].append(seq)
-        n = len(rec_state["recordings"])
-        rec_state["status"] = f"✅ Recording {n} saved."
+    if len(buf) >= 15:
+        if rec_state.get("type") == "Alphabet":
+            rec_state["recordings"].append(buf.copy())
+            n = len(rec_state["recordings"])
+            rec_state["status"] = f"✅ Recording {n}/{config.TEACH_NUM_RECORDINGS} saved ({len(buf)} frames)."
+        else:
+            seq = pad_or_sample_sequence(buf, config.SEQUENCE_LENGTH, config.WORD_NUM_FEATURES)
+            if not np.all(seq == 0):
+                rec_state["recordings"].append(seq)
+                n = len(rec_state["recordings"])
+                rec_state["status"] = f"✅ Recording {n}/{config.TEACH_NUM_RECORDINGS} saved."
+            else:
+                rec_state["status"] = "Recording discarded (no hands detected)."
     else:
-        rec_state["status"] = "Recording discarded (too few frames)."
+        rec_state["status"] = "Recording discarded (too few frames with hands detected)."
 
     rec_state["active"] = False
     rec_state["frame_buf"] = []
@@ -432,6 +454,7 @@ def api_start_recording():
     """Begin capturing frames for a new gesture recording."""
     data = request.get_json(silent=True) or {}
     label = (data.get("label") or "").strip().upper()
+    gesture_type = data.get("type", "Word")
 
     if not label:
         return jsonify({"error": "Enter a gesture label first."}), 400
@@ -445,6 +468,7 @@ def api_start_recording():
             return jsonify({"error": "Training is in progress. Please wait."}), 400
 
         rec_state["label"] = label
+        rec_state["type"] = gesture_type
         rec_state["frame_buf"] = []
         rec_state["active"] = True
         rec_state["status"] = f"Recording (0/{config.SEQUENCE_LENGTH} frames)"
@@ -457,6 +481,7 @@ def api_train():
     """Trigger background fine-tuning of the Word Expert with recorded samples."""
     with rec_lock:
         label = rec_state["label"]
+        gesture_type = rec_state.get("type", "Word")
         recordings = list(rec_state["recordings"])
         if not label or len(recordings) < 5:
             return jsonify({"error": "Record at least 5 samples first."}), 400
@@ -468,9 +493,20 @@ def api_train():
     def _run():
         try:
             temp_dir = config.TEACH_TEMP_DIR / label
+            if temp_dir.exists():
+                import shutil
+                shutil.rmtree(temp_dir)
             temp_dir.mkdir(parents=True, exist_ok=True)
-            for i, seq in enumerate(recordings):
-                np.save(str(temp_dir / f"{i:04d}.npy"), seq)
+
+            sample_idx = 0
+            for seq_or_frames in recordings:
+                if gesture_type == "Alphabet":
+                    for frame in seq_or_frames:
+                        np.save(str(temp_dir / f"{sample_idx:04d}.npy"), frame)
+                        sample_idx += 1
+                else:
+                    np.save(str(temp_dir / f"{sample_idx:04d}.npy"), seq_or_frames)
+                    sample_idx += 1
 
             def progress_cb(step, total, msg):
                 with rec_lock:
@@ -479,14 +515,18 @@ def api_train():
             train_new_gesture(
                 new_word_label=label,
                 new_samples_dir=temp_dir,
+                gesture_type=gesture_type,
                 progress_callback=progress_cb,
             )
 
+            # Hot-reload the live predictor
             predictor.hot_reload()
 
             with rec_lock:
-                rec_state["train_progress"] = f"✅ '{label}' trained & hot-reloaded!"
+                rec_state["train_progress"] = f"✅ '{label}' trained & active! Ready for recognition."
                 rec_state["train_running"] = False
+                rec_state["recordings"] = []
+                rec_state["status"] = f"'{label}' trained to model."
 
         except Exception as exc:
             logger.error("Training failed: %s", exc, exc_info=True)

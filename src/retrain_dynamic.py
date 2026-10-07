@@ -244,7 +244,7 @@ def train_new_gesture(
         np.save(str(out_cls / f"{i:04d}.npy"), arr)
 
     # ── 6. Update Database & Clean Up ─────────────────────────────────────────
-    _prog(7, "Registering custom gesture in SQLite database…")
+    _prog(7, "Registering custom gesture in PostgreSQL database…")
     db = DatabaseManager()
     db.add_gesture(
         gesture_name=new_word_label,

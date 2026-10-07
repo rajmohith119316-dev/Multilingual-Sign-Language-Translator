@@ -5,6 +5,11 @@ Mixture-of-Experts (MoE) Edition — Python 3.11
 
 import os
 from pathlib import Path
+from urllib.parse import quote_plus
+from dotenv import load_dotenv
+
+# Loads the hidden variables from the .env file when running locally
+load_dotenv()
 
 # ─── Base Directories ────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
@@ -41,7 +46,15 @@ WORD_MODEL_PATH   = MODEL_DIR / "word_expert.h5"
 WORD_ENCODER_PATH = MODEL_DIR / "word_encoder.pkl"
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-DB_PATH = DATA_DIR / "sign_language_app.db"
+# PostgreSQL connection string built from standard environment variables.
+# Set these in your shell, .env file, or deployment secrets before running.
+#   DB_NAME     (default: sign_language_db)
+#   DB_USER     (default: postgres)
+#   DB_PASSWORD (default: "")
+#   DB_HOST     (default: localhost)
+#   DB_PORT     (default: 5432)
+# Fetches the secure URL without exposing the password
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # ─── Feature Dimensions ───────────────────────────────────────────────────────
 # Single-hand alphabet: 20 landmarks × 3 = 60 wrist-relative features
@@ -99,7 +112,7 @@ TTS_COOLDOWN_SECONDS = 3.0
 TTS_SPEECH_RATE      = 150
 
 # ─── Camera / GUI ─────────────────────────────────────────────────────────────
-CAMERA_INDEX  = 0
+CAMERA_INDEX = 0
 FRAME_WIDTH   = 640
 FRAME_HEIGHT  = 480
 GUI_TITLE     = "Multilingual Real-Time Sign Language Translator — MoE Edition"

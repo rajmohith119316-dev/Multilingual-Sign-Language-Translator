@@ -96,7 +96,6 @@ def train_new_gesture(
     new_word_label: str,
     new_samples_dir: Path,
     gesture_type: str = "Word",
-    db_path: Path = config.DB_PATH,
     progress_callback: _ProgressCB = None,
 ) -> None:
     """
@@ -246,7 +245,7 @@ def train_new_gesture(
 
     # ── 6. Update Database & Clean Up ─────────────────────────────────────────
     _prog(7, "Registering custom gesture in SQLite database…")
-    db = DatabaseManager(db_path)
+    db = DatabaseManager()
     db.add_gesture(
         gesture_name=new_word_label,
         gesture_type=gesture_type,

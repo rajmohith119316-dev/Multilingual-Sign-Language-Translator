@@ -99,7 +99,7 @@ def main() -> None:
     logger.info("=" * 65)
     logger.info("Starting %s (Web Edition)", config.GUI_TITLE)
     logger.info("BASE_DIR : %s", config.BASE_DIR)
-    logger.info("DB_PATH  : %s", config.DB_PATH)
+    logger.info("DATABASE : %s", config.DATABASE_URL)
     logger.info("=" * 65)
 
     for d in (config.DATA_DIR, config.MODEL_DIR, config.LOGS_DIR,

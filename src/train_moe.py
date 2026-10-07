@@ -96,7 +96,6 @@ def train_alphabet_expert(
     processed_dir: Path  = config.PROCESSED_ALPHABETS_DIR,
     model_path: Path     = config.ALPHABET_MODEL_PATH,
     encoder_path: Path   = config.ALPHABET_ENCODER_PATH,
-    db_path: Path        = config.DB_PATH,
 ) -> None:
     """Full training pipeline for the Alphabet Expert."""
     import tensorflow as tf
@@ -183,7 +182,6 @@ def train_word_expert(
     processed_dir: Path  = config.PROCESSED_WORDS_DIR,
     model_path: Path     = config.WORD_MODEL_PATH,
     encoder_path: Path   = config.WORD_ENCODER_PATH,
-    db_path: Path        = config.DB_PATH,
 ) -> None:
     """Full training pipeline for the Word Expert."""
     import tensorflow as tf
@@ -251,7 +249,7 @@ def _populate_db(
     processed_dir: Path,
     db_path: Path,
 ) -> None:
-    db = DatabaseManager(db_path)
+    db = DatabaseManager()
     for label in classes:
         label_dir    = processed_dir / label
         sample_count = len(list(label_dir.glob("*.npy"))) if label_dir.exists() else 0

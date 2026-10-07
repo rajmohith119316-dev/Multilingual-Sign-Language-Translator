@@ -630,7 +630,7 @@ def init_components():
 
     # Database
     logger.info("Initializing database…")
-    db = DatabaseManager(config.DB_PATH)
+    db = DatabaseManager()
     logger.info("DB stats: %s", db.get_stats())
 
     # MoE Predictor

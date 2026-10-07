@@ -121,7 +121,6 @@ def train(
     sequences_dir: Path = config.SEQUENCES_DIR,
     model_path: Path    = config.MODEL_PATH,
     label_enc_path: Path = config.LABEL_ENC_PATH,
-    db_path: Path       = config.DB_PATH,
 ) -> None:
     """
     Full training pipeline:
@@ -221,7 +220,7 @@ def _populate_gesture_table(
     db_path: Path,
 ) -> None:
     """Insert all trained classes into the gestures table."""
-    db = DatabaseManager(db_path)
+    db = DatabaseManager()
     for label in classes:
         # Determine gesture type: single alphabets are 'static', rest 'dynamic'
         gesture_type = "static" if (len(label) == 1 and label.isalpha()) else "dynamic"

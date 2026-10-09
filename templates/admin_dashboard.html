@@ -347,7 +347,7 @@
           <thead>
             <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
           </thead>
-          <tbody>
+          <tbody id="usersTableBody">
             {% for u in users %}
             <tr>
               <td class="primary">{{ u.full_name }}<br><span style="font-size:0.72rem;color:var(--text-muted)">@{{ u.username }}</span></td>
@@ -402,7 +402,7 @@
           <thead>
             <tr><th>ID</th><th>User</th><th>Gesture</th><th>Type</th><th>Samples</th><th>Status</th><th>Submitted</th><th>Actions</th></tr>
           </thead>
-          <tbody>
+          <tbody id="submissionsTableBody">
             {% for s in submissions %}
             <tr data-status="{{ s.status }}">
               <td>#{{ s.id }}</td>
@@ -583,6 +583,95 @@
   </div>
 
   <script>
+    // ── Pagination Helper ───────────────────────────────────────
+    function paginateContainer(containerId, itemSelector, rowsPerPage) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      
+      let items = Array.from(container.querySelectorAll(itemSelector));
+      if (items.length === 0) return;
+
+      const controls = document.createElement('div');
+      controls.className = 'pagination-controls';
+      controls.style.display = 'flex';
+      controls.style.justifyContent = 'space-between';
+      controls.style.alignItems = 'center';
+      controls.style.marginTop = '16px';
+      controls.style.padding = '0 10px';
+      controls.style.fontSize = '0.8rem';
+      controls.style.color = 'var(--text-muted)';
+      
+      const info = document.createElement('span');
+      const btnGroup = document.createElement('div');
+      btnGroup.style.display = 'flex';
+      btnGroup.style.gap = '8px';
+      
+      const prevBtn = document.createElement('button');
+      prevBtn.innerText = 'Prev';
+      prevBtn.className = 'btn-sm btn-toggle';
+      
+      const nextBtn = document.createElement('button');
+      nextBtn.innerText = 'Next';
+      nextBtn.className = 'btn-sm btn-toggle';
+      
+      btnGroup.appendChild(prevBtn);
+      btnGroup.appendChild(nextBtn);
+      controls.appendChild(info);
+      controls.appendChild(btnGroup);
+      
+      container.parentNode.parentNode.insertBefore(controls, container.parentNode.nextSibling);
+
+      let currentPage = 1;
+
+      function renderPage(page) {
+        items = Array.from(container.querySelectorAll(itemSelector)); 
+        const visibleItems = items.filter(item => item.getAttribute('data-filtered-out') !== 'true');
+        const totalPages = Math.ceil(visibleItems.length / rowsPerPage) || 1;
+        
+        if (page > totalPages) page = totalPages;
+        if (page < 1) page = 1;
+        currentPage = page;
+        
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        
+        items.forEach(item => {
+          if (item.getAttribute('data-filtered-out') === 'true') {
+            item.style.display = 'none';
+          }
+        });
+
+        visibleItems.forEach((item, index) => {
+          if (index >= start && index < end) {
+            item.style.display = '';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+        
+        info.innerText = `Showing ${visibleItems.length === 0 ? 0 : start + 1} to ${Math.min(end, visibleItems.length)} of ${visibleItems.length}`;
+        
+        prevBtn.style.opacity = currentPage === 1 ? '0.5' : '1';
+        nextBtn.style.opacity = currentPage === totalPages ? '0.5' : '1';
+      }
+
+      prevBtn.addEventListener('click', () => { if (currentPage > 1) renderPage(currentPage - 1); });
+      nextBtn.addEventListener('click', () => {
+        const visibleItems = items.filter(item => item.getAttribute('data-filtered-out') !== 'true');
+        if (currentPage < Math.ceil(visibleItems.length / rowsPerPage)) renderPage(currentPage + 1);
+      });
+
+      renderPage(1);
+      container.renderPage = () => renderPage(1);
+    }
+
+    // Initialize pagination
+    document.addEventListener('DOMContentLoaded', () => {
+      paginateContainer('usersTableBody', 'tr', 10);
+      paginateContainer('submissionsTableBody', 'tr', 10);
+      paginateContainer('activityFeed', '.activity-row', 15);
+    });
+
     // ── Tabs ────────────────────────────────────────────────────
     document.querySelectorAll('.admin-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -596,10 +685,15 @@
     // ── Submissions filter ──────────────────────────────────────
     function filterSubmissions() {
       const status = document.getElementById('submissionStatusFilter').value;
-      document.querySelectorAll('#submissionsTable tbody tr').forEach(row => {
-        if (!status || row.dataset.status === status) row.style.display = '';
-        else row.style.display = 'none';
+      document.querySelectorAll('#submissionsTableBody tr').forEach(row => {
+        if (!status || row.dataset.status === status) {
+          row.removeAttribute('data-filtered-out');
+        } else {
+          row.setAttribute('data-filtered-out', 'true');
+        }
       });
+      const tbody = document.getElementById('submissionsTableBody');
+      if (tbody.renderPage) tbody.renderPage();
     }
 
     // ── Activity filter (AJAX) ──────────────────────────────────
@@ -621,6 +715,10 @@
             <span class="time">${a.date}</span>
           </div>
         `).join('');
+        // Re-init pagination controls
+        const oldControls = feed.parentNode.parentNode.querySelector('.pagination-controls');
+        if (oldControls) oldControls.remove();
+        paginateContainer('activityFeed', '.activity-row', 15);
       }).catch(() => {});
     }
 

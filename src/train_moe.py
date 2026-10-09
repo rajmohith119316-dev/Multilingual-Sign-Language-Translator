@@ -141,15 +141,14 @@ def train_alphabet_expert(
               epochs=config.ALPHABET_EPOCHS, batch_size=config.BATCH_SIZE,
               callbacks=cbs, verbose=1)
 
-    if not model_path.exists():
-        model.save(str(model_path))
+    model.save(str(model_path))
 
     joblib.dump(le, str(encoder_path))
     val_loss, val_acc = model.evaluate(X_v, y_v, verbose=0)
     logger.info("Alphabet Expert - val_acc: %.4f", val_acc)
     print(f"\n[OK] Alphabet Expert trained - val_accuracy: {val_acc*100:.2f}%")
 
-    _populate_db(le.classes_.tolist(), "Alphabet", processed_dir, db_path)
+    _populate_db(le.classes_.tolist(), "Alphabet", processed_dir)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -228,15 +227,14 @@ def train_word_expert(
               epochs=config.WORD_EPOCHS, batch_size=config.BATCH_SIZE,
               callbacks=cbs, verbose=1)
 
-    if not model_path.exists():
-        model.save(str(model_path))
+    model.save(str(model_path))
 
     joblib.dump(le, str(encoder_path))
     val_loss, val_acc = model.evaluate(X_v, y_v, verbose=0)
     logger.info("Word Expert - val_acc: %.4f", val_acc)
     print(f"\n[OK] Word Expert trained - val_accuracy: {val_acc*100:.2f}%")
 
-    _populate_db(le.classes_.tolist(), "Word", processed_dir, db_path)
+    _populate_db(le.classes_.tolist(), "Word", processed_dir)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -247,7 +245,6 @@ def _populate_db(
     classes: list[str],
     gesture_type: str,      # 'Alphabet' | 'Word'
     processed_dir: Path,
-    db_path: Path,
 ) -> None:
     db = DatabaseManager()
     for label in classes:

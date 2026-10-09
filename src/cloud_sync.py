@@ -5,13 +5,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
-from src.database_manager import DatabaseManager
+from src.auth_models import UserManager
 from src.retrain_dynamic import train_new_gesture
 
 def sync_active_models_from_db():
     """Download the active models from the database if they exist."""
     print("Checking cloud database for active models...")
-    mgr = DatabaseManager()
+    mgr = UserManager()
     versions = mgr.get_model_versions()
     
     for v in versions:
@@ -47,7 +47,7 @@ def run_cloud_retrain(job_id: int):
     3. Retrain
     4. Upload the resulting model to DB
     """
-    mgr = DatabaseManager()
+    mgr = UserManager()
     
     # Mark job as running
     sql_running = "UPDATE training_jobs SET status = 'RUNNING', started_at = NOW() WHERE id = %s"
@@ -78,23 +78,41 @@ def run_cloud_retrain(job_id: int):
             
             samples = mgr.get_submission_samples(sub["id"])
             for idx, s in enumerate(samples):
-                # fetch binary data
-                sql_data = "SELECT sample_data FROM training_samples WHERE id = %s"
-                with mgr._connect() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(sql_data, (s["id"],))
-                        row = cur.fetchone()
-                        if row and row[0]:
-                            file_path = label_dir / f"sub_{sub['id']}_s_{idx}.npy"
-                            with open(file_path, 'wb') as f:
-                                f.write(row[0])
+                data = s.get("sample_data")
+                if data:
+                    file_path = label_dir / f"sub_{sub['id']}_s_{idx}.npy"
+                    with open(file_path, 'wb') as f:
+                        f.write(data)
 
         # Run the full training script
-        # train_base_model.py trains BOTH alphabet and word models
-        from src.train_base_model import main as train_base_main
-        train_base_main()
+        # train_moe.py trains BOTH alphabet and word models
+        from src.train_moe import train_alphabet_expert, train_word_expert
+        train_alphabet_expert()
+        train_word_expert()
         
         # After training, the models are at ALPHABET_MODEL_PATH and WORD_MODEL_PATH
+        
+        # Upload Alphabet Model to DB
+        if config.ALPHABET_MODEL_PATH.exists():
+            with open(config.ALPHABET_MODEL_PATH, 'rb') as f:
+                alpha_mdata = f.read()
+            alpha_edata = None
+            if config.ALPHABET_ENCODER_PATH.exists():
+                with open(config.ALPHABET_ENCODER_PATH, 'rb') as f:
+                    alpha_edata = f.read()
+            
+            vtag_alpha = f"Alphabet_Cloud_{job_id}"
+            sql_insert_model = """
+                INSERT INTO model_versions (version_tag, model_type, model_path, model_data, encoder_data, is_active)
+                VALUES (%s, %s, %s, %s, %s, TRUE)
+            """
+            with mgr._connect() as conn:
+                with conn.cursor() as cur:
+                    # Deactivate old ones
+                    cur.execute("UPDATE model_versions SET is_active = FALSE WHERE model_type = 'Alphabet'")
+                    cur.execute(sql_insert_model, (vtag_alpha, "Alphabet", str(config.ALPHABET_MODEL_PATH), alpha_mdata, alpha_edata))
+                conn.commit()
+
         # Upload Word Model to DB
         if config.WORD_MODEL_PATH.exists():
             with open(config.WORD_MODEL_PATH, 'rb') as f:
@@ -124,6 +142,14 @@ def run_cloud_retrain(job_id: int):
             conn.commit()
             
         print("Cloud retrain completed successfully!")
+        
+        try:
+            import web_app
+            if web_app.predictor:
+                web_app.predictor.hot_reload()
+                print("MoE Predictor hot reloaded with new models!")
+        except Exception as e:
+            print(f"Failed to hot reload predictor: {e}")
 
     except Exception as e:
         print(f"Cloud retrain failed: {e}")

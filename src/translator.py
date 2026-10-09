@@ -99,16 +99,25 @@ class AudioTranslator:
         target_lang = self._lang
         def _bg_translate():
             try:
-                from deep_translator import GoogleTranslator
-                res = GoogleTranslator(source="en", target=target_lang).translate(english_text)
+                from deep_translator import GoogleTranslator, MyMemoryTranslator
+                try:
+                    res = GoogleTranslator(source="en", target=target_lang).translate(english_text)
+                except Exception as g_exc:
+                    logger.warning("GoogleTranslator failed: %s. Trying MyMemoryTranslator...", g_exc)
+                    res = MyMemoryTranslator(source="en", target=target_lang).translate(english_text)
+                
                 if res:
                     self._db.cache_translation(english_text, target_lang, res)
                     if self._tts_on:
                         self.speak(res)
+                    self._pending_translations.discard((english_text, target_lang))
             except Exception as exc:        # noqa: BLE001
                 logger.warning("Async translation failed for '%s': %s", english_text, exc)
-            finally:
-                self._pending_translations.discard((english_text, target_lang))
+                # Keep it in pending for a few seconds to avoid hammering the API
+                def _remove_later():
+                    time.sleep(5.0)
+                    self._pending_translations.discard((english_text, target_lang))
+                threading.Thread(target=_remove_later, daemon=True).start()
 
         threading.Thread(target=_bg_translate, daemon=True, name="AsyncTranslator").start()
         return english_text   # immediate non-blocking response

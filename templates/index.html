@@ -732,7 +732,14 @@
 
     <div class="nav-status">
       <div class="status-dot" id="status-dot"></div>
-      <span class="status-text" id="status-text">System ready</span>
+      <span class="status-text" id="status-text" style="margin-right: 12px;">System ready</span>
+      
+      {% if session.get('user_id') %}
+        <a href="/dashboard" style="color: var(--accent); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-right: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated);">📊 Dashboard</a>
+        <a href="/auth/logout" style="color: var(--text-secondary); font-size: 0.8rem; text-decoration: none;">Logout</a>
+      {% else %}
+        <a href="/auth/login" style="color: var(--text-primary); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-right: 12px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-dim);">Login</a>
+      {% endif %}
     </div>
   </nav>
 
@@ -753,7 +760,7 @@
             </div>
             <div class="live-indicator" id="live-indicator">LIVE</div>
           </div>
-          <img id="video-feed" src="/video_feed" alt="Live webcam feed" />
+          <img id="video-feed" alt="Live webcam feed" />
           <div class="p1-buffer-bar">
             <span style="color: var(--text-secondary); font-size: 0.8rem;">Word Buffer</span>
             <div class="progress-track">
@@ -816,7 +823,7 @@
         <!-- Camera Preview -->
         <div>
           <div class="p2-feed-container">
-            <img id="teach-feed" src="/video_feed" alt="Teaching preview" />
+            <img id="teach-feed" alt="Teaching preview" />
             <div class="p2-overlay-badge" id="teach-badge">
               <span>🎬</span> Preview
             </div>
@@ -878,7 +885,7 @@
               </div>
               <div id="teach-train-status" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px; min-height: 1.2em;"></div>
               <div style="display: flex; gap: 8px; margin-top: 12px;">
-                <button class="btn btn-purple" id="btn-teach-train" disabled style="flex: 1;">🧠 Train Model</button>
+                <button class="btn btn-purple" id="btn-teach-train" disabled style="flex: 1;">🧠 Submit for Review</button>
                 <button class="btn btn-danger" id="btn-teach-reset">🔄 Reset</button>
               </div>
             </div>
@@ -999,6 +1006,10 @@
     </div>
 
   </div><!-- /page-container -->
+  
+  <!-- Hidden elements for local webcam capture -->
+  <video id="webcam-video" autoplay playsinline style="display: none;"></video>
+  <canvas id="webcam-canvas" style="display: none;"></canvas>
 
 
   <!-- ═══════════════════════════════════════════════════════════════════
@@ -1045,15 +1056,59 @@
       'WORD':     { text: '💬 WORD — 2 Hands',        cls: 'badge-word' },
     };
 
-    async function pollState() {
+    async function processFrameLoop() {
+      const video = document.getElementById('webcam-video');
+      const canvas = document.getElementById('webcam-canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Initialize camera if not done
+      if (!video.srcObject) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+          video.srcObject = stream;
+          // Wait for video to be ready
+          await new Promise(r => video.onloadedmetadata = r);
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        } catch(err) {
+          document.getElementById('status-dot').className = 'status-dot offline';
+          document.getElementById('status-text').textContent = 'Camera error';
+          console.error(err);
+          setTimeout(processFrameLoop, 5000);
+          return;
+        }
+      }
+
       try {
-        const s = await fetch('/api/state').then(r => r.json());
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const b64 = canvas.toDataURL('image/jpeg', 0.7);
+
+        const res = await fetch('/api/process_frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: b64 })
+        });
+        
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        
+        // Update images
+        document.getElementById('video-feed').src = data.image;
+        document.getElementById('teach-feed').src = data.image;
+
+        const s = data.state;
 
         // Prediction
-        document.getElementById('pred-sign').textContent = s.label || '—';
+        if (s.translation && s.translation !== s.label) {
+          document.getElementById('pred-sign').textContent = s.translation;
+          document.getElementById('pred-translation').textContent = `English: ${s.label}`;
+        } else {
+          document.getElementById('pred-sign').textContent = s.label || '—';
+          document.getElementById('pred-translation').textContent = '—';
+        }
+        
         document.getElementById('pred-conf').textContent =
           s.confidence ? (s.confidence * 100).toFixed(1) + '%' : '0.0%';
-        document.getElementById('pred-translation').textContent = s.translation || '—';
 
         // Mode badge
         const badge = modeBadgeMap[s.mode] || modeBadgeMap['IDLE'];
@@ -1094,9 +1149,11 @@
         document.getElementById('status-dot').className = 'status-dot offline';
         document.getElementById('status-text').textContent = 'Connecting…';
       }
+
+      // Keep polling instantly (or set slight delay to not burn CPU)
+      requestAnimationFrame(processFrameLoop);
     }
-    setInterval(pollState, 500);
-    pollState();
+    processFrameLoop();
 
     // ═══ PAGE 1 — Controls ═══════════════════════════════════════════
     document.getElementById('language-select').addEventListener('change', async (e) => {

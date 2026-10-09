@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Access Denied — SignLingo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #06060f; --bg-card: #12122a; --border: #252555;
+      --accent: #00e5cc; --purple: #7c3aed; --red: #ef4444;
+      --text-primary: #e8e8f0; --text-muted: #5a5a80;
+      --radius-xl: 20px; --radius-md: 12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-primary); color: var(--text-primary);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    body::before {
+      content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(ellipse 600px 400px at 50% 50%, rgba(239,68,68,0.06), transparent);
+      pointer-events: none;
+    }
+    .denied-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-xl); padding: 48px 40px; text-align: center;
+      max-width: 440px; position: relative; overflow: hidden;
+      animation: fadeIn 0.5s ease;
+    }
+    .denied-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; background: linear-gradient(90deg, var(--red), #dc2626);
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .denied-icon { font-size: 4rem; margin-bottom: 16px; }
+    .denied-card h1 {
+      font-size: 1.6rem; font-weight: 800; color: var(--red); margin-bottom: 8px;
+    }
+    .denied-card p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .denied-card a {
+      display: inline-block; padding: 10px 24px;
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      color: var(--text-primary); text-decoration: none;
+      font-size: 0.85rem; font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    .denied-card a:hover { border-color: var(--accent); background: rgba(0,229,204,0.08); }
+  </style>
+</head>
+<body>
+  <div class="denied-card">
+    <div class="denied-icon">🚫</div>
+    <h1>ACCESS DENIED</h1>
+    <p>You do not have permission to access this page.<br>Admin authorization is required.</p>
+    <a href="/dashboard">← Back to Dashboard</a>
+  </div>
+</body>
+</html>

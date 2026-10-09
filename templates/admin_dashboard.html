@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Admin Dashboard — SignLingo Multilingual Sign Language Translator" />
+  <title>Admin Dashboard — SignLingo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #06060f; --bg-secondary: #0c0c1d; --bg-card: #12122a;
+      --bg-card-hover: #181840; --bg-elevated: #1a1a3e; --border: #252555;
+      --border-glow: #7c3aed40; --accent: #00e5cc; --accent-dim: #00e5cc20;
+      --accent-glow: #00e5cc40; --purple: #7c3aed; --purple-dim: #7c3aed20;
+      --purple-glow: #7c3aed50; --pink: #ec4899; --blue: #38bdf8;
+      --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
+      --text-primary: #e8e8f0; --text-secondary: #8888b0; --text-muted: #5a5a80;
+      --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 20px;
+      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-primary); color: var(--text-primary);
+      min-height: 100vh; overflow-x: hidden; line-height: 1.6;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
+    body::before {
+      content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background:
+        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
+        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* Topbar */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(6,6,15,0.88); backdrop-filter: blur(20px) saturate(1.4);
+      border-bottom: 1px solid var(--border); padding: 0 24px;
+      display: flex; align-items: center; height: 64px;
+    }
+    .topbar-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.1rem; color: var(--accent);
+      text-decoration: none; letter-spacing: -0.5px;
+    }
+    .topbar-brand svg { width: 28px; height: 28px; }
+    .admin-badge {
+      padding: 3px 10px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--purple), #6d28d9);
+      color: white; font-size: 0.68rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px; margin-left: 8px;
+    }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+    .topbar-link {
+      padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--bg-elevated); color: var(--text-primary);
+      font-size: 0.8rem; font-weight: 600; text-decoration: none;
+      transition: all var(--transition);
+    }
+    .topbar-link:hover { border-color: var(--accent); background: var(--accent-dim); }
+    .btn-logout {
+      padding: 8px 18px; border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--bg-elevated); color: var(--text-primary);
+      font-family: inherit; font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: all var(--transition); text-decoration: none;
+    }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+    /* Main */
+    .page-wrap {
+      margin-top: 64px; padding: 28px 24px; max-width: 1400px;
+      margin-left: auto; margin-right: auto; position: relative; z-index: 1;
+      animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+    .page-title {
+      font-size: 1.6rem; font-weight: 800; margin-bottom: 4px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .page-subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; }
+
+    /* Stat cards */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 18px 16px;
+      text-align: center; transition: all var(--transition);
+    }
+    .stat-card:hover { border-color: var(--border-glow); box-shadow: var(--shadow-glow); }
+    .stat-value { font-size: 1.8rem; font-weight: 800; }
+    .stat-value.accent { color: var(--accent); }
+    .stat-value.purple { color: var(--purple); }
+    .stat-value.amber  { color: var(--amber); }
+    .stat-value.green  { color: var(--green); }
+    .stat-value.red    { color: var(--red); }
+    .stat-value.blue   { color: var(--blue); }
+    .stat-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+    /* Tabs */
+    .admin-tabs {
+      display: flex; gap: 4px; background: var(--bg-card); border-radius: var(--radius-lg);
+      padding: 4px; border: 1px solid var(--border); margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .admin-tab {
+      padding: 9px 20px; border-radius: var(--radius-md);
+      font-size: 0.82rem; font-weight: 500; color: var(--text-secondary);
+      cursor: pointer; transition: all var(--transition);
+      border: none; background: none; font-family: inherit;
+    }
+    .admin-tab:hover { color: var(--text-primary); background: var(--bg-elevated); }
+    .admin-tab.active {
+      color: var(--bg-primary); background: linear-gradient(135deg, var(--purple), #6d28d9);
+      font-weight: 600; box-shadow: 0 2px 16px var(--purple-glow);
+    }
+
+    /* Panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn 0.3s ease; }
+
+    /* Card */
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--text-muted); margin-bottom: 16px;
+    }
+
+    /* Table */
+    .data-table {
+      width: 100%; border-collapse: collapse; font-size: 0.85rem;
+    }
+    .data-table th {
+      text-align: left; padding: 10px 12px; font-size: 0.72rem;
+      text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table td {
+      padding: 12px; border-bottom: 1px solid rgba(37,37,85,0.3);
+      color: var(--text-secondary);
+    }
+    .data-table tr:hover td { background: var(--bg-elevated); }
+    .data-table td.primary { color: var(--text-primary); font-weight: 600; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex; padding: 3px 10px; border-radius: 16px;
+      font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .badge-pending  { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .badge-approved { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge-rejected { background: rgba(239,68,68,0.15); color: var(--red); }
+    .badge-admin    { background: rgba(124,58,237,0.15); color: var(--purple); }
+    .badge-user     { background: rgba(56,189,248,0.15); color: var(--blue); }
+    .badge-active   { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge-inactive { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    /* Action buttons */
+    .btn-sm {
+      padding: 6px 14px; border: none; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 0.75rem; font-weight: 600;
+      cursor: pointer; transition: all var(--transition);
+    }
+    .btn-approve { background: rgba(34,197,94,0.15); color: var(--green); }
+    .btn-approve:hover { background: var(--green); color: white; }
+    .btn-reject { background: rgba(239,68,68,0.15); color: var(--red); }
+    .btn-reject:hover { background: var(--red); color: white; }
+    .btn-toggle { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-toggle:hover { border-color: var(--accent); }
+
+    .action-group { display: flex; gap: 6px; }
+
+    /* Filters */
+    .filter-bar {
+      display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-input, .filter-select {
+      padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--bg-secondary); color: var(--text-primary);
+      font-family: inherit; font-size: 0.82rem; outline: none;
+      transition: border-color var(--transition);
+    }
+    .filter-input:focus, .filter-select:focus { border-color: var(--accent); }
+    .filter-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238888b0'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px;
+    }
+    .filter-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+
+    /* Activity feed (admin) */
+    .activity-row {
+      display: grid; grid-template-columns: 100px 140px 1fr 1fr auto;
+      gap: 12px; align-items: center; padding: 10px 12px;
+      border-bottom: 1px solid rgba(37,37,85,0.3); font-size: 0.82rem;
+    }
+    .activity-row:hover { background: var(--bg-elevated); }
+    .activity-row .time {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted);
+    }
+    .activity-row .user-name { font-weight: 600; color: var(--text-primary); }
+    .activity-row .type { color: var(--accent); font-weight: 600; }
+    .activity-row .page-info { color: var(--text-secondary); }
+
+    .empty-state {
+      text-align: center; padding: 40px; color: var(--text-muted); font-size: 0.9rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-xl); padding: 28px;
+      max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+      animation: fadeIn 0.3s ease;
+    }
+    .modal h3 {
+      font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .modal-close {
+      float: right; background: none; border: none; color: var(--text-muted);
+      font-size: 1.5rem; cursor: pointer; padding: 0 4px;
+    }
+    .modal-close:hover { color: var(--text-primary); }
+    .modal .form-group { margin-bottom: 16px; }
+    .modal .form-label {
+      display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .modal .form-input {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--border);
+      border-radius: var(--radius-md); background: var(--bg-secondary);
+      color: var(--text-primary); font-family: inherit; font-size: 0.88rem; outline: none;
+    }
+    .modal .form-input:focus { border-color: var(--accent); }
+    .modal textarea.form-input { resize: vertical; min-height: 80px; }
+    .modal .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+    .modal .btn-row .btn-sm { padding: 10px 20px; font-size: 0.85rem; }
+
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: repeat(3, 1fr); }
+      .activity-row { grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.78rem; }
+    }
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .admin-tabs { overflow-x: auto; flex-wrap: nowrap; }
+      .data-table { font-size: 0.78rem; }
+      .page-wrap { padding: 20px 14px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Topbar -->
+  <div class="topbar">
+    <a href="/admin" class="topbar-brand">
+      <svg viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="22" stroke="url(#g1)" stroke-width="2" opacity="0.3"/>
+        <path d="M16 32 C16 20, 24 14, 32 18 C28 16, 22 18, 20 26 L24 22 C26 18, 30 18, 30 22 L26 28 C28 24, 32 22, 32 26 C32 30, 28 34, 24 34 C20 34, 16 32, 16 32Z"
+              fill="url(#g2)" opacity="0.9"/>
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="48" y2="48">
+            <stop offset="0%" stop-color="#00e5cc"/><stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+          <linearGradient id="g2" x1="14" y1="14" x2="34" y2="34">
+            <stop offset="0%" stop-color="#00e5cc"/><stop offset="50%" stop-color="#7c3aed"/>
+            <stop offset="100%" stop-color="#ec4899"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      SignLingo <span class="admin-badge">Admin</span>
+    </a>
+    <div class="topbar-right">
+      <a href="/dashboard" class="topbar-link">📊 User Dashboard</a>
+      <a href="/" class="topbar-link">🤟 Translator</a>
+      <a href="/auth/logout" class="btn-logout">Logout</a>
+    </div>
+  </div>
+
+  <div class="page-wrap">
+    <h1 class="page-title">Admin Dashboard</h1>
+    <p class="page-subtitle">Manage users, review submissions, and monitor activity</p>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value accent">{{ stats.total_users }}</div>
+        <div class="stat-label">Total Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value amber">{{ stats.pending_submissions }}</div>
+        <div class="stat-label">Pending Reviews</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value green">{{ stats.approved_submissions }}</div>
+        <div class="stat-label">Approved</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value red">{{ stats.rejected_submissions }}</div>
+        <div class="stat-label">Rejected</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value blue">{{ stats.total_activity }}</div>
+        <div class="stat-label">Activity Events</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value purple">{{ stats.total_models }}</div>
+        <div class="stat-label">Model Versions</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="admin-tabs" id="adminTabs">
+      <button class="admin-tab active" data-tab="users">👥 Users</button>
+      <button class="admin-tab" data-tab="submissions">📋 Submissions</button>
+      <button class="admin-tab" data-tab="activity">📊 User Activity</button>
+      <button class="admin-tab" data-tab="models">🧠 Models</button>
+    </div>
+
+    <!-- ═══ Users Panel ═══ -->
+    <div class="tab-panel active" id="panel-users">
+      <div class="card">
+        <div class="card-title">All Users</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td class="primary">{{ u.full_name }}<br><span style="font-size:0.72rem;color:var(--text-muted)">@{{ u.username }}</span></td>
+              <td>{{ u.email }}</td>
+              <td>
+                <form method="POST" action="/admin/update_role" style="display:inline;">
+                  <input type="hidden" name="user_id" value="{{ u.id }}">
+                  <select name="role" class="filter-select" style="padding: 4px; font-size: 0.7rem; width: auto;" onchange="this.form.submit()">
+                    <option value="USER" {% if u.role == 'USER' %}selected{% endif %}>User</option>
+                    <option value="ADMIN" {% if u.role == 'ADMIN' %}selected{% endif %}>Admin</option>
+                  </select>
+                </form>
+              </td>
+              <td><span class="badge badge-{{ 'active' if u.is_active else 'inactive' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span></td>
+              <td style="font-size:0.78rem;">{{ u.last_login.strftime('%d-%m-%Y %H:%M') if u.last_login else 'Never' }}</td>
+              <td>
+                <div class="action-group">
+                  <form method="POST" action="/admin/toggle_user" style="display:inline;">
+                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                    <input type="hidden" name="is_active" value="{{ 'false' if u.is_active else 'true' }}">
+                    <button type="submit" class="btn-sm btn-toggle">
+                      {{ 'Disable' if u.is_active else 'Enable' }}
+                    </button>
+                  </form>
+                  <form method="POST" action="/admin/delete_user" style="display:inline;" onsubmit="return confirm('Are you sure you want to permanently delete this user?');">
+                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                    <button type="submit" class="btn-sm btn-reject">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ Submissions Panel ═══ -->
+    <div class="tab-panel" id="panel-submissions">
+      <div class="filter-bar">
+        <span class="filter-label">Filter:</span>
+        <select class="filter-select" id="submissionStatusFilter" onchange="filterSubmissions()">
+          <option value="">All Status</option>
+          <option value="PENDING">Pending</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="card-title">Training Submissions</div>
+        <table class="data-table" id="submissionsTable">
+          <thead>
+            <tr><th>ID</th><th>User</th><th>Gesture</th><th>Type</th><th>Samples</th><th>Status</th><th>Submitted</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {% for s in submissions %}
+            <tr data-status="{{ s.status }}">
+              <td>#{{ s.id }}</td>
+              <td class="primary">{{ s.full_name }}</td>
+              <td class="primary">{{ s.gesture_label }}</td>
+              <td>{{ s.gesture_type }}</td>
+              <td>{{ s.sample_count }}</td>
+              <td><span class="badge badge-{{ s.status | lower }}">{{ s.status }}</span></td>
+              <td style="font-size:0.78rem;">{{ s.submitted_at.strftime('%d-%m-%Y %H:%M') if s.submitted_at else '' }}</td>
+              <td>
+                {% if s.status == 'PENDING' %}
+                <div class="action-group">
+                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')">🔍 View</button>
+                  <form method="POST" action="/admin/review_submission" style="display:inline;">
+                    <input type="hidden" name="submission_id" value="{{ s.id }}">
+                    <input type="hidden" name="status" value="APPROVED">
+                    <button type="submit" class="btn-sm btn-approve">✓ Approve</button>
+                  </form>
+                  <button type="button" class="btn-sm btn-reject"
+                          onclick="openRejectModal({{ s.id }}, '{{ s.gesture_label }}')">✗ Reject</button>
+                </div>
+                {% elif s.status == 'REJECTED' and s.rejection_reason %}
+                <div class="action-group">
+                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')">🔍 View</button>
+                  <span style="font-size:0.75rem;color:var(--red);font-style:italic;">{{ s.rejection_reason }}</span>
+                </div>
+                {% else %}
+                <div class="action-group">
+                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')">🔍 View</button>
+                  <span style="font-size:0.75rem;color:var(--text-muted);">—</span>
+                </div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if not submissions %}
+        <div class="empty-state">No submissions found.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ═══ Activity Panel ═══ -->
+    <div class="tab-panel" id="panel-activity">
+      <div class="filter-bar">
+        <span class="filter-label">Filters:</span>
+        <select class="filter-select" id="actUserFilter">
+          <option value="">All Users</option>
+          {% for u in users %}
+          <option value="{{ u.id }}">{{ u.full_name }}</option>
+          {% endfor %}
+        </select>
+        <select class="filter-select" id="actTypeFilter">
+          <option value="">All Types</option>
+          <option value="LOGIN">LOGIN</option>
+          <option value="LOGOUT">LOGOUT</option>
+          <option value="PAGE_VIEW">PAGE_VIEW</option>
+          <option value="TRANSLATOR_USED">TRANSLATOR_USED</option>
+          <option value="TEACH_OPENED">TEACH_OPENED</option>
+          <option value="TEACH_STARTED">TEACH_STARTED</option>
+          <option value="TEACH_COMPLETED">TEACH_COMPLETED</option>
+          <option value="TRAINING_SUBMITTED">TRAINING_SUBMITTED</option>
+          <option value="LANGUAGE_CHANGED">LANGUAGE_CHANGED</option>
+        </select>
+        <button class="btn-sm btn-toggle" onclick="loadActivity()">Apply</button>
+      </div>
+      <div class="card" id="activityCard">
+        <div class="card-title">User Activity Log</div>
+        <div id="activityFeed">
+          {% for a in all_activity %}
+          <div class="activity-row">
+            <span class="time">{{ a.created_at.strftime('%H:%M') if a.created_at else '' }}</span>
+            <span class="user-name">{{ a.full_name }}</span>
+            <span class="type">{{ a.activity_type }}</span>
+            <span class="page-info">{{ a.page or '' }}{% if a.action %} · {{ a.action }}{% endif %}</span>
+            <span class="time">{{ a.created_at.strftime('%d-%m-%Y') if a.created_at else '' }}</span>
+          </div>
+          {% endfor %}
+          {% if not all_activity %}
+          <div class="empty-state">No activity recorded yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Models Panel ═══ -->
+    <div class="tab-panel" id="panel-models">
+      <div class="card">
+        <div class="card-title">Model Versions</div>
+        {% if model_versions %}
+        <table class="data-table">
+          <thead><tr><th>Version</th><th>Type</th><th>Accuracy</th><th>Status</th><th>Created</th></tr></thead>
+          <tbody>
+            {% for m in model_versions %}
+            <tr>
+              <td class="primary">{{ m.version_tag }}</td>
+              <td>{{ m.model_type }}</td>
+              <td>{{ '%.2f%%' | format(m.accuracy * 100) if m.accuracy else 'N/A' }}</td>
+              <td><span class="badge badge-{{ 'active' if m.is_active else 'inactive' }}">{{ 'Active' if m.is_active else 'Archived' }}</span></td>
+              <td style="font-size:0.78rem;">{{ m.created_at.strftime('%d-%m-%Y') if m.created_at else '' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No model versions registered yet.</div>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <span>Training Jobs</span>
+          <form method="POST" action="/admin/trigger_retrain" style="margin: 0;">
+            <input type="hidden" name="job_type" value="Word Model Retraining">
+            <button type="submit" class="btn-sm btn-approve" style="padding: 8px 16px;">🚀 Trigger Retrain</button>
+          </form>
+        </div>
+        {% if training_jobs %}
+        <table class="data-table">
+          <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Version</th><th>Started</th><th>Completed</th></tr></thead>
+          <tbody>
+            {% for j in training_jobs %}
+            <tr>
+              <td>#{{ j.id }}</td>
+              <td>{{ j.job_type }}</td>
+              <td><span class="badge badge-{{ 'approved' if j.status == 'COMPLETED' else 'pending' if j.status == 'RUNNING' else 'rejected' if j.status == 'FAILED' else 'user' }}">{{ j.status }}</span></td>
+              <td>{{ j.version_tag or '—' }}</td>
+              <td style="font-size:0.78rem;">{{ j.started_at.strftime('%d-%m-%Y %H:%M') if j.started_at else '—' }}</td>
+              <td style="font-size:0.78rem;">{{ j.completed_at.strftime('%d-%m-%Y %H:%M') if j.completed_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No training jobs recorded yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Modal -->
+  <div class="modal-overlay" id="rejectModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeRejectModal()">&times;</button>
+      <h3>Reject Submission</h3>
+      <form method="POST" action="/admin/review_submission">
+        <input type="hidden" name="submission_id" id="rejectSubmissionId">
+        <input type="hidden" name="status" value="REJECTED">
+        <div class="form-group">
+          <label class="form-label">Gesture</label>
+          <input class="form-input" id="rejectGestureName" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="rejectReason">Rejection Reason</label>
+          <textarea class="form-input" id="rejectReason" name="rejection_reason"
+                    placeholder="Explain why this submission is being rejected…" required></textarea>
+        </div>
+        <div class="btn-row">
+          <button type="submit" class="btn-sm btn-reject" style="padding:10px 24px;">Reject Submission</button>
+          <button type="button" class="btn-sm btn-toggle" onclick="closeRejectModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- View Samples Modal -->
+  <div class="modal-overlay" id="samplesModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeSamplesModal()">&times;</button>
+      <h3>Samples: <span id="samplesGestureName" style="color:var(--text-primary)"></span></h3>
+      <div id="samplesListContainer">
+        <!-- populated by JS -->
+      </div>
+      <div class="btn-row" style="margin-top: 10px;">
+        <button type="button" class="btn-sm btn-toggle" onclick="closeSamplesModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Tabs ────────────────────────────────────────────────────
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ── Submissions filter ──────────────────────────────────────
+    function filterSubmissions() {
+      const status = document.getElementById('submissionStatusFilter').value;
+      document.querySelectorAll('#submissionsTable tbody tr').forEach(row => {
+        if (!status || row.dataset.status === status) row.style.display = '';
+        else row.style.display = 'none';
+      });
+    }
+
+    // ── Activity filter (AJAX) ──────────────────────────────────
+    function loadActivity() {
+      const userId = document.getElementById('actUserFilter').value;
+      const aType = document.getElementById('actTypeFilter').value;
+      let url = '/admin/api/activity?limit=200';
+      if (userId) url += '&user_id=' + userId;
+      if (aType) url += '&activity_type=' + aType;
+      fetch(url).then(r => r.json()).then(data => {
+        const feed = document.getElementById('activityFeed');
+        if (!data.length) { feed.innerHTML = '<div class="empty-state">No matching activity.</div>'; return; }
+        feed.innerHTML = data.map(a => `
+          <div class="activity-row">
+            <span class="time">${a.time}</span>
+            <span class="user-name">${a.full_name}</span>
+            <span class="type">${a.activity_type}</span>
+            <span class="page-info">${a.page || ''}${a.action ? ' · ' + a.action : ''}</span>
+            <span class="time">${a.date}</span>
+          </div>
+        `).join('');
+      }).catch(() => {});
+    }
+
+    // ── Reject Modal ────────────────────────────────────────────
+    function openRejectModal(id, label) {
+      document.getElementById('rejectSubmissionId').value = id;
+      document.getElementById('rejectGestureName').value = label;
+      document.getElementById('rejectReason').value = '';
+      document.getElementById('rejectModal').classList.add('open');
+    }
+    function closeRejectModal() {
+      document.getElementById('rejectModal').classList.remove('open');
+    }
+    document.getElementById('rejectModal').addEventListener('click', function(e) {
+      if (e.target === this) closeRejectModal();
+    });
+
+    // ── Samples Modal ───────────────────────────────────────────
+    function viewSamples(id, label) {
+      document.getElementById('samplesGestureName').innerText = label;
+      const container = document.getElementById('samplesListContainer');
+      container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Loading samples...</p>';
+      document.getElementById('samplesModal').classList.add('open');
+
+      fetch('/admin/api/submission/' + id + '/samples')
+        .then(r => r.json())
+        .then(data => {
+          if (!data.length) {
+            container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No samples found for this submission.</p>';
+            return;
+          }
+          let html = '<table class="data-table" style="margin-bottom: 0;"><thead><tr><th>Path</th><th>Type</th><th>Frames</th><th>Date</th></tr></thead><tbody>';
+          data.forEach(s => {
+            html += `<tr>
+              <td style="word-break:break-all; font-size:0.75rem;">${s.sample_path}</td>
+              <td>${s.sample_type}</td>
+              <td>${s.frame_count || '-'}</td>
+              <td style="font-size:0.75rem;">${s.created_at}</td>
+            </tr>`;
+          });
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        })
+        .catch(err => {
+          container.innerHTML = '<p style="color:var(--red); font-size:0.85rem;">Error loading samples.</p>';
+        });
+    }
+
+    function closeSamplesModal() {
+      document.getElementById('samplesModal').classList.remove('open');
+    }
+    document.getElementById('samplesModal').addEventListener('click', function(e) {
+      if (e.target === this) closeSamplesModal();
+    });
+
+    // Track admin dashboard view
+    fetch('/api/track_activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activity_type: 'PAGE_VIEW', page: '/admin', action: 'OPEN' })
+    }).catch(() => {});
+  </script>
+</body>
+</html>

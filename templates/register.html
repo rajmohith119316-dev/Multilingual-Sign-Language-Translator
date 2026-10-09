@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Register for SignLingo — Multilingual Sign Language Translator" />
+  <title>Register — SignLingo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       Design System Tokens  (matches index.html)
+       ═══════════════════════════════════════════════════════════ */
+    :root {
+      --bg-primary: #06060f;
+      --bg-secondary: #0c0c1d;
+      --bg-card: #12122a;
+      --bg-card-hover: #181840;
+      --bg-elevated: #1a1a3e;
+      --border: #252555;
+      --border-glow: #7c3aed40;
+      --accent: #00e5cc;
+      --accent-dim: #00e5cc20;
+      --accent-glow: #00e5cc40;
+      --purple: #7c3aed;
+      --purple-dim: #7c3aed20;
+      --purple-glow: #7c3aed50;
+      --pink: #ec4899;
+      --blue: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --text-primary: #e8e8f0;
+      --text-secondary: #8888b0;
+      --text-muted: #5a5a80;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background:
+        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
+        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent),
+        radial-gradient(ellipse 400px 300px at 50% 50%, rgba(236,72,153,0.04), transparent);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* Particles */
+    .particles {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0; overflow: hidden;
+    }
+    .particle {
+      position: absolute; border-radius: 50%; opacity: 0.15;
+      animation: floatUp linear infinite;
+    }
+    @keyframes floatUp {
+      0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+      10%  { opacity: 0.15; }
+      90%  { opacity: 0.15; }
+      100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+    }
+
+    /* Container */
+    .register-wrapper {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 500px;
+      margin: 20px;
+      animation: fadeSlideUp 0.6s ease;
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .register-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 36px 36px 32px;
+      position: relative; overflow: hidden;
+      box-shadow: var(--shadow-card);
+    }
+    .register-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--purple), var(--accent), var(--pink), var(--purple));
+      background-size: 300% 100%;
+      animation: gradientShift 4s ease infinite;
+    }
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+
+    /* Brand */
+    .register-brand {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .register-brand svg { width: 44px; height: 44px; margin-bottom: 10px;
+      filter: drop-shadow(0 0 20px var(--accent-glow)); }
+    .register-brand h1 {
+      font-size: 1.25rem; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; letter-spacing: -0.3px;
+    }
+    .register-brand .subtitle {
+      font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;
+    }
+
+    /* Form */
+    .register-form { margin-top: 24px; }
+    .form-group { margin-bottom: 18px; }
+    .form-label {
+      display: block; font-size: 0.78rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-secondary); margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%; padding: 11px 14px;
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--bg-secondary); color: var(--text-primary);
+      font-family: inherit; font-size: 0.9rem;
+      transition: all var(--transition); outline: none;
+    }
+    .form-input::placeholder { color: var(--text-muted); }
+    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .form-input.error { border-color: var(--red); box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .password-wrapper { position: relative; }
+    .password-toggle {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 1.1rem; padding: 4px;
+      transition: color var(--transition);
+    }
+    .password-toggle:hover { color: var(--accent); }
+
+    /* Strength indicator */
+    .password-strength { margin-top: 8px; }
+    .strength-bar {
+      width: 100%; height: 4px; background: var(--bg-secondary);
+      border-radius: 2px; overflow: hidden;
+    }
+    .strength-fill {
+      height: 100%; border-radius: 2px;
+      transition: width 0.3s ease, background 0.3s ease;
+      width: 0%;
+    }
+    .strength-text { font-size: 0.72rem; margin-top: 4px; color: var(--text-muted); }
+
+    /* Buttons */
+    .btn-register {
+      width: 100%; padding: 13px 24px;
+      border: none; border-radius: var(--radius-md);
+      font-family: inherit; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: all var(--transition);
+      letter-spacing: 0.5px; text-transform: uppercase;
+      background: linear-gradient(135deg, var(--purple), #6d28d9);
+      color: white;
+      box-shadow: 0 2px 20px var(--purple-glow);
+      margin-top: 4px;
+    }
+    .btn-register:hover { transform: translateY(-2px); box-shadow: 0 6px 30px var(--purple-glow); }
+    .btn-register:active { transform: translateY(0); }
+    .btn-register:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    .btn-login-link {
+      width: 100%; padding: 11px 24px;
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      font-family: inherit; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all var(--transition);
+      background: var(--bg-elevated); color: var(--text-primary);
+      text-decoration: none; display: block; text-align: center;
+    }
+    .btn-login-link:hover {
+      border-color: var(--accent); background: var(--accent-dim); color: var(--text-primary);
+    }
+
+    .divider {
+      display: flex; align-items: center; gap: 16px; margin: 22px 0;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .divider span { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+
+    /* Alert */
+    .alert {
+      padding: 12px 16px; border-radius: var(--radius-md);
+      font-size: 0.85rem; margin-bottom: 18px;
+      display: flex; align-items: center; gap: 10px;
+      animation: fadeSlideUp 0.3s ease;
+    }
+    .alert-error {
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5;
+    }
+    .alert-success {
+      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); color: #86efac;
+    }
+    .alert-icon { font-size: 1.2em; flex-shrink: 0; }
+
+    .login-footer {
+      text-align: center; margin-top: 24px;
+      font-size: 0.78rem; color: var(--text-muted);
+    }
+    .login-footer a { color: var(--accent); text-decoration: none; transition: color var(--transition); }
+    .login-footer a:hover { color: var(--purple); }
+
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid transparent; border-top-color: currentColor;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+      vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .form-hint {
+      font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;
+    }
+
+    @media (max-width: 520px) {
+      .register-card { padding: 28px 22px 24px; }
+      .form-row { grid-template-columns: 1fr; gap: 0; }
+      .register-brand h1 { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="particles" id="particles"></div>
+
+  <div class="register-wrapper">
+    <div class="register-card">
+      <div class="register-brand">
+        <svg viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="22" stroke="url(#g1)" stroke-width="2" opacity="0.3"/>
+          <path d="M16 32 C16 20, 24 14, 32 18 C28 16, 22 18, 20 26 L24 22 C26 18, 30 18, 30 22 L26 28 C28 24, 32 22, 32 26 C32 30, 28 34, 24 34 C20 34, 16 32, 16 32Z"
+                fill="url(#g2)" opacity="0.9"/>
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="48" y2="48">
+              <stop offset="0%" stop-color="#00e5cc"/>
+              <stop offset="100%" stop-color="#7c3aed"/>
+            </linearGradient>
+            <linearGradient id="g2" x1="14" y1="14" x2="34" y2="34">
+              <stop offset="0%" stop-color="#00e5cc"/>
+              <stop offset="50%" stop-color="#7c3aed"/>
+              <stop offset="100%" stop-color="#ec4899"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <h1>Create Your Account</h1>
+        <p class="subtitle">Join the Multilingual Sign Language Translator</p>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+              <span class="alert-icon">{{ '⚠' if category == 'error' else '✓' }}</span>
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form class="register-form" method="POST" action="/auth/register" id="registerForm">
+        <div class="form-group">
+          <label class="form-label" for="reg-fullname">Full Name</label>
+          <input class="form-input" type="text" id="reg-fullname" name="full_name"
+                 placeholder="Enter your full name" required
+                 value="{{ request.form.get('full_name', '') }}" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="reg-username">Username</label>
+            <input class="form-input" type="text" id="reg-username" name="username"
+                   placeholder="Choose a username" autocomplete="username" required
+                   pattern="[a-zA-Z0-9_]{3,30}"
+                   value="{{ request.form.get('username', '') }}" />
+            <p class="form-hint">3-30 chars, letters, numbers, underscores</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-email">Email</label>
+            <input class="form-input" type="email" id="reg-email" name="email"
+                   placeholder="you@example.com" autocomplete="email" required
+                   value="{{ request.form.get('email', '') }}" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-password">Password</label>
+          <div class="password-wrapper">
+            <input class="form-input" type="password" id="reg-password" name="password"
+                   placeholder="Create a strong password" autocomplete="new-password"
+                   required minlength="8" />
+            <button type="button" class="password-toggle" onclick="togglePassword('reg-password', this)" aria-label="Toggle password">👁</button>
+          </div>
+          <div class="password-strength" id="strengthMeter">
+            <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+            <p class="strength-text" id="strengthText">Min 8 characters</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reg-confirm">Confirm Password</label>
+          <div class="password-wrapper">
+            <input class="form-input" type="password" id="reg-confirm" name="confirm_password"
+                   placeholder="Re-enter your password" autocomplete="new-password" required />
+            <button type="button" class="password-toggle" onclick="togglePassword('reg-confirm', this)" aria-label="Toggle password">👁</button>
+          </div>
+        </div>
+
+        <!-- Role is always USER — NEVER exposed in the form -->
+
+        <button type="submit" class="btn-register" id="registerBtn">
+          Create Account
+        </button>
+      </form>
+
+      <div class="divider">
+        <span>Already have an account?</span>
+      </div>
+
+      <a href="/auth/login" class="btn-login-link">
+        Login
+      </a>
+    </div>
+
+    <div class="login-footer">
+      <a href="/">← Back to Home</a>
+    </div>
+  </div>
+
+  <script>
+    // ── Particles ─────────────────────────────────────────────────
+    (function() {
+      const c = document.getElementById('particles');
+      const colors = ['#00e5cc','#7c3aed','#ec4899','#38bdf8'];
+      for (let i = 0; i < 30; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const s = Math.random()*6+2;
+        p.style.cssText = `width:${s}px;height:${s}px;background:${colors[Math.floor(Math.random()*colors.length)]};left:${Math.random()*100}%;animation-duration:${Math.random()*15+10}s;animation-delay:${Math.random()*10}s;`;
+        c.appendChild(p);
+      }
+    })();
+
+    function togglePassword(id, btn) {
+      const i = document.getElementById(id);
+      if (i.type === 'password') { i.type = 'text'; btn.textContent = '🙈'; }
+      else { i.type = 'password'; btn.textContent = '👁'; }
+    }
+
+    // ── Password strength ─────────────────────────────────────────
+    document.getElementById('reg-password').addEventListener('input', function() {
+      const v = this.value;
+      const fill = document.getElementById('strengthFill');
+      const text = document.getElementById('strengthText');
+      let score = 0;
+      if (v.length >= 8) score++;
+      if (v.length >= 12) score++;
+      if (/[A-Z]/.test(v)) score++;
+      if (/[0-9]/.test(v)) score++;
+      if (/[^A-Za-z0-9]/.test(v)) score++;
+      const pct = (score / 5) * 100;
+      fill.style.width = pct + '%';
+      if (score <= 1) { fill.style.background = '#ef4444'; text.textContent = 'Weak'; text.style.color = '#ef4444'; }
+      else if (score <= 2) { fill.style.background = '#f59e0b'; text.textContent = 'Fair'; text.style.color = '#f59e0b'; }
+      else if (score <= 3) { fill.style.background = '#38bdf8'; text.textContent = 'Good'; text.style.color = '#38bdf8'; }
+      else { fill.style.background = '#22c55e'; text.textContent = 'Strong'; text.style.color = '#22c55e'; }
+      if (v.length === 0) { fill.style.width = '0%'; text.textContent = 'Min 8 characters'; text.style.color = 'var(--text-muted)'; }
+    });
+
+    // ── Client-side validation ────────────────────────────────────
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+      const pw = document.getElementById('reg-password').value;
+      const cf = document.getElementById('reg-confirm').value;
+      if (pw !== cf) {
+        e.preventDefault();
+        document.getElementById('reg-confirm').classList.add('error');
+        alert('Passwords do not match.');
+        return;
+      }
+      if (pw.length < 8) {
+        e.preventDefault();
+        document.getElementById('reg-password').classList.add('error');
+        alert('Password must be at least 8 characters.');
+        return;
+      }
+      const btn = document.getElementById('registerBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Creating Account…';
+    });
+  </script>
+</body>
+</html>

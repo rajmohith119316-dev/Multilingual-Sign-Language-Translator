@@ -24,16 +24,19 @@ Run
     → Press Ctrl+C in the terminal to stop
 """
 
+import base64
 import json
 import logging
+import os
 import sys
 import threading
 import time
+from datetime import timedelta
 from pathlib import Path
 
 import cv2
 import numpy as np
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, session
 
 # ── Project imports ──────────────────────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -223,8 +226,14 @@ db: DatabaseManager = None          # type: ignore[assignment]
 predictor: GesturePredictor = None  # type: ignore[assignment]
 translator: AudioTranslator = None  # type: ignore[assignment]
 
+# ── Auth ─────────────────────────────────────────────────────────────────────
+from src.auth_models import UserManager
+from src.auth_routes import auth_bp, init_auth
+user_mgr: UserManager = None        # type: ignore[assignment]
+
 # ── Single shared camera ─────────────────────────────────────────────────────
-cap: cv2.VideoCapture = None        # type: ignore[assignment]
+# (Cloud Inference: Camera is handled by the client browser)
+cap = None
 cap_lock = threading.Lock()
 
 # ── Live prediction state ────────────────────────────────────────────────────
@@ -252,125 +261,8 @@ rec_lock = threading.Lock()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Camera Helpers
+# Frame Processing (Cloud Inference)
 # ═══════════════════════════════════════════════════════════════════════════
-
-def open_camera() -> cv2.VideoCapture:
-    """Open the webcam with robust fallback across backends and indices."""
-    indices = [config.CAMERA_INDEX] + [i for i in [0, 1, 2] if i != config.CAMERA_INDEX]
-    backends = [cv2.CAP_DSHOW, cv2.CAP_ANY] if sys.platform.startswith("win") else [cv2.CAP_ANY]
-
-    for idx in indices:
-        for backend in backends:
-            try:
-                c = cv2.VideoCapture(idx, backend)
-                if c is not None and c.isOpened():
-                    c.set(cv2.CAP_PROP_FRAME_WIDTH, config.FRAME_WIDTH)
-                    c.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
-                    if hasattr(cv2, "CAP_PROP_BUFFERSIZE"):
-                        try:
-                            c.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                        except Exception:
-                            pass
-                    logger.info("Camera opened: index=%d, backend=%d", idx, backend)
-                    return c
-            except Exception:
-                pass
-
-    raise RuntimeError("Cannot open webcam. Check that a camera is connected and not in use.")
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Frame Generator  (heart of the MJPEG stream)
-# ═══════════════════════════════════════════════════════════════════════════
-
-def generate_frames():
-    """
-    Yield JPEG frames as a multipart HTTP stream.
-
-    For every frame:
-      1. Read from the shared camera (thread-safe via cap_lock).
-      2. Mirror it so the user sees a natural "selfie" view.
-      3. Run MediaPipe + MoE prediction and draw overlays.
-      4. If we're in recording mode, capture the feature vector.
-      5. Encode as JPEG and yield as one chunk of the MJPEG stream.
-    """
-    global cap
-
-    while True:
-        with cap_lock:
-            if cap is None or not cap.isOpened():
-                break
-            ret, frame = cap.read()
-
-        if not ret or frame is None:
-            time.sleep(0.01)
-            continue
-
-        frame = mirror_frame(frame)
-
-        result, left_lm, right_lm, n_hands = predictor.update(frame)
-        mode = predictor.current_mode
-
-        if left_lm:
-            draw_hand_landmarks(frame, left_lm, color=(50, 200, 255))
-        if right_lm:
-            draw_hand_landmarks(frame, right_lm, color=(0, 230, 110))
-
-        draw_router_badge(frame, mode)
-
-        if result:
-            label, conf, _mode = result
-            tx = translator.process_prediction(label, conf)
-            draw_prediction_banner(frame, label, conf, tx)
-            with pred_lock:
-                prediction_state["label"] = label
-                prediction_state["confidence"] = round(conf, 4)
-                prediction_state["translation"] = tx
-
-        with pred_lock:
-            prediction_state["mode"] = mode
-            prediction_state["word_buffer_fill"] = predictor.word_buffer_fill
-
-        status_text = f"{mode}  |  Buffer: {predictor.word_buffer_fill}/{config.SEQUENCE_LENGTH}"
-        draw_status_bar(frame, status_text)
-
-        # Recording: capture features if active
-        with rec_lock:
-            if rec_state["active"]:
-                if rec_state.get("type") == "Alphabet":
-                    active_lm = left_lm if left_lm is not None else right_lm
-                    if active_lm is not None:
-                        from src.utils import extract_single_hand_features
-                        feat = extract_single_hand_features(active_lm)
-                        rec_state["frame_buf"].append(feat)
-                else:
-                    # For Word: capture when at least one hand is detected in frame
-                    if left_lm is not None or right_lm is not None:
-                        feat = extract_dual_hand_features(left_lm, right_lm)
-                        rec_state["frame_buf"].append(feat)
-                
-                n = len(rec_state["frame_buf"])
-                if n == 0:
-                    rec_state["status"] = "Waiting for hands in camera view…"
-                else:
-                    rec_state["status"] = f"Recording ({n}/{config.SEQUENCE_LENGTH} frames)"
-
-                cv2.circle(frame, (30, 30), 12, (0, 0, 255), -1)
-                cv2.putText(frame, f"REC {n}/{config.SEQUENCE_LENGTH}",
-                            (50, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                            (0, 0, 255), 2, cv2.LINE_AA)
-
-                if n >= config.SEQUENCE_LENGTH:
-                    _finish_recording()
-
-        _, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-        yield (
-            b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n" + jpeg.tobytes() + b"\r\n"
-        )
-
-        time.sleep(0.033)
 
 
 def _finish_recording():
@@ -403,6 +295,9 @@ def _finish_recording():
 # ═══════════════════════════════════════════════════════════════════════════
 
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", os.urandom(32).hex())
+app.permanent_session_lifetime = timedelta(hours=8)
+app.register_blueprint(auth_bp)
 
 
 # ── Page ─────────────────────────────────────────────────────────────────────
@@ -418,33 +313,107 @@ def index():
     )
 
 
-# ── Video stream ─────────────────────────────────────────────────────────────
+# ── Cloud Inference API ──────────────────────────────────────────────────────
 
-@app.route("/video_feed")
-def video_feed():
-    """MJPEG stream endpoint."""
-    return Response(
-        generate_frames(),
-        mimetype="multipart/x-mixed-replace; boundary=frame",
-    )
+@app.route("/api/process_frame", methods=["POST"])
+def api_process_frame():
+    """Receive base64 JPEG from client, run inference, return annotated JPEG and state JSON."""
+    data = request.json
+    if not data or "image" not in data:
+        return jsonify({"error": "No image"}), 400
 
+    b64 = data["image"]
+    if b64.startswith("data:image"):
+        b64 = b64.split(",")[1]
 
-# ── Live state (polled by JS) ───────────────────────────────────────────────
+    try:
+        img_bytes = base64.b64decode(b64)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    except Exception as e:
+        return jsonify({"error": "Bad image format"}), 400
 
-@app.route("/api/state")
-def api_state():
-    """Return current prediction + recording state as JSON."""
+    if frame is None:
+        return jsonify({"error": "Bad image"}), 400
+
+    # We do NOT mirror the frame here because the client browser already captures it mirrored!
+    # Wait, the browser usually captures exactly what it sees. Let's let the frontend handle mirroring via CSS and flip it before drawing, OR we just mirror it here if needed.
+    # We will just mirror it to keep MoE features consistent with how they were trained.
+    frame = mirror_frame(frame)
+    result, left_lm, right_lm, n_hands = predictor.update(frame)
+    mode = predictor.current_mode
+
+    if left_lm:
+        draw_hand_landmarks(frame, left_lm, color=(50, 200, 255))
+    if right_lm:
+        draw_hand_landmarks(frame, right_lm, color=(0, 230, 110))
+
+    draw_router_badge(frame, mode)
+
+    if result:
+        label, conf, _mode = result
+        tx = translator.process_prediction(label, conf)
+        draw_prediction_banner(frame, label, conf, tx)
+        with pred_lock:
+            prediction_state["label"] = label
+            prediction_state["confidence"] = round(conf, 4)
+            prediction_state["translation"] = tx
+
     with pred_lock:
-        pred = dict(prediction_state)
+        prediction_state["mode"] = mode
+        prediction_state["word_buffer_fill"] = predictor.word_buffer_fill
+
+    status_text = f"{mode}  |  Buffer: {predictor.word_buffer_fill}/{config.SEQUENCE_LENGTH}"
+    draw_status_bar(frame, status_text)
+
+    # Recording logic
     with rec_lock:
-        rec = {
+        if rec_state["active"]:
+            if rec_state.get("type") == "Alphabet":
+                active_lm = left_lm if left_lm is not None else right_lm
+                if active_lm is not None:
+                    from src.utils import extract_single_hand_features
+                    feat = extract_single_hand_features(active_lm)
+                    rec_state["frame_buf"].append(feat)
+            else:
+                if left_lm is not None or right_lm is not None:
+                    from src.utils import extract_dual_hand_features
+                    feat = extract_dual_hand_features(left_lm, right_lm)
+                    rec_state["frame_buf"].append(feat)
+            
+            n = len(rec_state["frame_buf"])
+            if n == 0:
+                rec_state["status"] = "Waiting for hands in camera view…"
+            else:
+                rec_state["status"] = f"Recording ({n}/{config.SEQUENCE_LENGTH} frames)"
+
+            cv2.circle(frame, (30, 30), 12, (0, 0, 255), -1)
+            cv2.putText(frame, f"REC {n}/{config.SEQUENCE_LENGTH}",
+                        (50, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                        (0, 0, 255), 2, cv2.LINE_AA)
+
+            if n >= config.SEQUENCE_LENGTH:
+                _finish_recording()
+
+    # Send the frame back. It is already mirrored once at the top (which makes it act like a mirror),
+    # and the text was drawn forwards, so we leave it as is.
+    _, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+    out_b64 = "data:image/jpeg;base64," + base64.b64encode(jpeg.tobytes()).decode('utf-8')
+
+    with pred_lock:
+        pred_out = dict(prediction_state)
+    with rec_lock:
+        rec_out = {
             "recording_active": rec_state["active"],
             "recordings_count": len(rec_state["recordings"]),
             "rec_status": rec_state["status"],
-            "train_progress": rec_state["train_progress"],
             "train_running": rec_state["train_running"],
+            "train_progress": rec_state["train_progress"],
         }
-    return jsonify({**pred, **rec})
+    
+    state_out = {**pred_out, **rec_out}
+
+    return jsonify({"image": out_b64, "state": state_out})
 
 
 # ── Teach Custom Sign API ────────────────────────────────────────────────────
@@ -478,64 +447,62 @@ def api_start_recording():
 
 @app.route("/api/train", methods=["POST"])
 def api_train():
-    """Trigger background fine-tuning of the Word Expert with recorded samples."""
+    """Submit recorded samples for Admin review."""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "You must be logged in to submit training samples."}), 401
+
     with rec_lock:
         label = rec_state["label"]
         gesture_type = rec_state.get("type", "Word")
         recordings = list(rec_state["recordings"])
         if not label or len(recordings) < 5:
             return jsonify({"error": "Record at least 5 samples first."}), 400
-        if rec_state["train_running"]:
-            return jsonify({"error": "Training already in progress."}), 400
-        rec_state["train_running"] = True
-        rec_state["train_progress"] = "Starting training…"
+        
+        rec_state["train_progress"] = "Submitting for review..."
 
-    def _run():
-        try:
-            temp_dir = config.TEACH_TEMP_DIR / label
-            if temp_dir.exists():
-                import shutil
-                shutil.rmtree(temp_dir)
-            temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        # Create submission
+        sub_id = user_mgr.create_submission(uid, label, gesture_type, len(recordings))
+        if not sub_id:
+            raise Exception("Failed to create submission record.")
 
-            sample_idx = 0
-            for seq_or_frames in recordings:
-                if gesture_type == "Alphabet":
-                    for frame in seq_or_frames:
-                        np.save(str(temp_dir / f"{sample_idx:04d}.npy"), frame)
-                        sample_idx += 1
-                else:
-                    np.save(str(temp_dir / f"{sample_idx:04d}.npy"), seq_or_frames)
+        # Save arrays and link to submission
+        save_dir = config.DATA_DIR / "pending_submissions" / str(sub_id)
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        sample_idx = 0
+        for seq_or_frames in recordings:
+            if gesture_type == "Alphabet":
+                for frame in seq_or_frames:
+                    path = str(save_dir / f"{sample_idx:04d}.npy")
+                    np.save(path, frame)
+                    with open(path, 'rb') as f:
+                        file_data = f.read()
+                    user_mgr.add_training_sample(sub_id, path, "npy", 1, sample_data=file_data)
                     sample_idx += 1
+            else:
+                path = str(save_dir / f"{sample_idx:04d}.npy")
+                np.save(path, seq_or_frames)
+                with open(path, 'rb') as f:
+                    file_data = f.read()
+                user_mgr.add_training_sample(sub_id, path, "npy", len(seq_or_frames), sample_data=file_data)
+                sample_idx += 1
 
-            def progress_cb(step, total, msg):
-                with rec_lock:
-                    rec_state["train_progress"] = f"[{step}/{total}] {msg}"
+        user_mgr.log_activity(uid, "TRAINING_SUBMITTED", page="/teach", action=f"Submitted '{label}' ({len(recordings)} samples)", session_id=session.get("session_id"))
 
-            train_new_gesture(
-                new_word_label=label,
-                new_samples_dir=temp_dir,
-                gesture_type=gesture_type,
-                progress_callback=progress_cb,
-            )
+        with rec_lock:
+            rec_state["train_progress"] = f"✅ '{label}' submitted successfully for admin review!"
+            rec_state["recordings"] = []
+            rec_state["status"] = "Submission pending review."
+            
+        return jsonify({"ok": True, "message": "Submission sent for review."})
 
-            # Hot-reload the live predictor
-            predictor.hot_reload()
-
-            with rec_lock:
-                rec_state["train_progress"] = f"✅ '{label}' trained & active! Ready for recognition."
-                rec_state["train_running"] = False
-                rec_state["recordings"] = []
-                rec_state["status"] = f"'{label}' trained to model."
-
-        except Exception as exc:
-            logger.error("Training failed: %s", exc, exc_info=True)
-            with rec_lock:
-                rec_state["train_progress"] = f"❌ Error: {exc}"
-                rec_state["train_running"] = False
-
-    threading.Thread(target=_run, daemon=True, name="TrainThread").start()
-    return jsonify({"ok": True, "message": "Training started in background."})
+    except Exception as exc:
+        logger.error("Submission failed: %s", exc, exc_info=True)
+        with rec_lock:
+            rec_state["train_progress"] = f"❌ Error: {exc}"
+        return jsonify({"error": str(exc)}), 500
 
 
 @app.route("/api/reset", methods=["POST"])
@@ -622,7 +589,7 @@ def api_known_signs():
 
 def init_components():
     """Initialize all ML components and the camera. Called once at startup."""
-    global db, predictor, translator, cap
+    global db, predictor, translator, cap, user_mgr
 
     logger.info("=" * 60)
     logger.info("Starting %s (Web Edition — 4-Page UI)", config.GUI_TITLE)
@@ -632,6 +599,12 @@ def init_components():
     logger.info("Initializing database…")
     db = DatabaseManager()
     logger.info("DB stats: %s", db.get_stats())
+
+    # Auth / User management (creates tables + seeds admin from env vars)
+    logger.info("Initializing authentication system…")
+    user_mgr = UserManager()
+    init_auth(user_mgr)
+    logger.info("Auth system ready.")
 
     # MoE Predictor
     logger.info("Initializing MoE Predictor…")
@@ -651,8 +624,7 @@ def init_components():
         translator = AudioTranslator(db_manager=db, tts_enabled=False)
 
     # Camera
-    logger.info("Opening camera…")
-    cap = open_camera()
+    logger.info("Camera handling delegated to client browser (Cloud Inference).")
     logger.info("All components ready.")
 
 
@@ -669,9 +641,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Interrupted by user (Ctrl+C).")
     finally:
-        with cap_lock:
-            if cap is not None and cap.isOpened():
-                cap.release()
-                logger.info("Camera released.")
         predictor.close()
         logger.info("Application exited.")

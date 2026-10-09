@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="User Dashboard — SignLingo Multilingual Sign Language Translator" />
+  <title>Dashboard — SignLingo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #06060f;
+      --bg-secondary: #0c0c1d;
+      --bg-card: #12122a;
+      --bg-card-hover: #181840;
+      --bg-elevated: #1a1a3e;
+      --border: #252555;
+      --border-glow: #7c3aed40;
+      --accent: #00e5cc;
+      --accent-dim: #00e5cc20;
+      --accent-glow: #00e5cc40;
+      --purple: #7c3aed;
+      --purple-dim: #7c3aed20;
+      --purple-glow: #7c3aed50;
+      --pink: #ec4899;
+      --blue: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --text-primary: #e8e8f0;
+      --text-secondary: #8888b0;
+      --text-muted: #5a5a80;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
+
+    body::before {
+      content: '';
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background:
+        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
+        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent),
+        radial-gradient(ellipse 400px 300px at 50% 50%, rgba(236,72,153,0.04), transparent);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── Top Bar ──────────────────────────────────────────────── */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(6,6,15,0.88);
+      backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px; display: flex; align-items: center; height: 64px;
+    }
+    .topbar-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.1rem; color: var(--accent);
+      letter-spacing: -0.5px; text-decoration: none;
+    }
+    .topbar-brand svg { width: 28px; height: 28px; }
+    .topbar-right {
+      margin-left: auto; display: flex; align-items: center; gap: 16px;
+    }
+    .topbar-user {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.85rem; color: var(--text-secondary);
+    }
+    .user-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.85rem; color: var(--bg-primary);
+    }
+    .btn-logout {
+      padding: 8px 18px; border: 1px solid var(--border);
+      border-radius: var(--radius-md); background: var(--bg-elevated);
+      color: var(--text-primary); font-family: inherit; font-size: 0.8rem;
+      font-weight: 600; cursor: pointer; transition: all var(--transition);
+      text-decoration: none;
+    }
+    .btn-logout:hover { border-color: var(--red); color: var(--red); background: rgba(239,68,68,0.08); }
+
+    /* ── Page ─────────────────────────────────────────────────── */
+    .page-wrap {
+      margin-top: 64px; padding: 32px 24px;
+      max-width: 1200px; margin-left: auto; margin-right: auto;
+      position: relative; z-index: 1;
+      animation: fadeIn 0.5s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Welcome */
+    .welcome-section { margin-bottom: 32px; }
+    .welcome-section h1 {
+      font-size: 1.8rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .welcome-section p { color: var(--text-secondary); font-size: 0.95rem; margin-top: 4px; }
+
+    /* Quick Actions Grid */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px; margin-bottom: 36px;
+    }
+    .action-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 24px 20px;
+      text-decoration: none; color: var(--text-primary);
+      transition: all var(--transition); position: relative; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      text-align: center;
+    }
+    .action-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 2px; opacity: 0; transition: opacity var(--transition);
+    }
+    .action-card:hover { border-color: var(--border-glow); box-shadow: var(--shadow-glow); transform: translateY(-3px); }
+    .action-card:hover::before { opacity: 1; }
+    .action-card .action-icon {
+      width: 52px; height: 52px; border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem;
+    }
+    .action-card h3 { font-size: 0.95rem; font-weight: 700; }
+    .action-card p { font-size: 0.78rem; color: var(--text-muted); }
+
+    .action-card.translator::before { background: linear-gradient(90deg, var(--accent), var(--blue)); }
+    .action-card.translator .action-icon { background: var(--accent-dim); }
+    .action-card.teach::before { background: linear-gradient(90deg, var(--purple), var(--pink)); }
+    .action-card.teach .action-icon { background: var(--purple-dim); }
+    .action-card.submissions::before { background: linear-gradient(90deg, var(--amber), var(--green)); }
+    .action-card.submissions .action-icon { background: rgba(245,158,11,0.15); }
+    .action-card.activity::before { background: linear-gradient(90deg, var(--blue), var(--accent)); }
+    .action-card.activity .action-icon { background: rgba(56,189,248,0.15); }
+
+    /* Sections */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-header h2 {
+      font-size: 1.2rem; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Cards section */
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 20px;
+      transition: all var(--transition); position: relative; overflow: hidden;
+    }
+    .card:hover { border-color: var(--border-glow); box-shadow: var(--shadow-glow); }
+
+    /* Submissions list */
+    .submission-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid rgba(37,37,85,0.5);
+      transition: background var(--transition);
+    }
+    .submission-item:last-child { border-bottom: none; }
+    .submission-item:hover { background: var(--bg-elevated); }
+    .submission-label { font-weight: 600; font-size: 0.95rem; }
+    .submission-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .badge-pending  { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .badge-approved { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge-rejected { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    .rejection-reason {
+      font-size: 0.78rem; color: var(--red); margin-top: 4px;
+      font-style: italic;
+    }
+
+    /* Activity list */
+    .activity-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid rgba(37,37,85,0.3);
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-time {
+      font-size: 0.75rem; color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap; min-width: 72px;
+    }
+    .activity-type {
+      font-size: 0.78rem; font-weight: 600; color: var(--accent);
+    }
+    .activity-detail { font-size: 0.78rem; color: var(--text-secondary); }
+
+    .empty-state {
+      text-align: center; padding: 40px 20px;
+      color: var(--text-muted); font-size: 0.9rem;
+    }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+
+    .grid-2col {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    }
+
+    /* Admin link */
+    .admin-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 18px; border: 1px solid var(--purple);
+      border-radius: var(--radius-md); background: var(--purple-dim);
+      color: var(--purple); font-size: 0.8rem; font-weight: 600;
+      text-decoration: none; transition: all var(--transition);
+    }
+    .admin-link:hover { background: var(--purple); color: white; }
+
+    @media (max-width: 768px) {
+      .grid-2col { grid-template-columns: 1fr; }
+      .actions-grid { grid-template-columns: 1fr 1fr; }
+      .welcome-section h1 { font-size: 1.4rem; }
+    }
+    @media (max-width: 480px) {
+      .actions-grid { grid-template-columns: 1fr; }
+      .page-wrap { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="topbar">
+    <a href="/dashboard" class="topbar-brand">
+      <svg viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="22" stroke="url(#g1)" stroke-width="2" opacity="0.3"/>
+        <path d="M16 32 C16 20, 24 14, 32 18 C28 16, 22 18, 20 26 L24 22 C26 18, 30 18, 30 22 L26 28 C28 24, 32 22, 32 26 C32 30, 28 34, 24 34 C20 34, 16 32, 16 32Z"
+              fill="url(#g2)" opacity="0.9"/>
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="48" y2="48">
+            <stop offset="0%" stop-color="#00e5cc"/><stop offset="100%" stop-color="#7c3aed"/>
+          </linearGradient>
+          <linearGradient id="g2" x1="14" y1="14" x2="34" y2="34">
+            <stop offset="0%" stop-color="#00e5cc"/><stop offset="50%" stop-color="#7c3aed"/>
+            <stop offset="100%" stop-color="#ec4899"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      SignLingo
+    </a>
+    <div class="topbar-right">
+      {% if user.role == 'ADMIN' %}
+        <a href="/admin" class="admin-link">⚙ Admin Dashboard</a>
+      {% endif %}
+      <div class="topbar-user">
+        <div class="user-avatar">{{ user.full_name[0] | upper }}</div>
+        <span>{{ user.full_name }}</span>
+      </div>
+      <a href="/auth/logout" class="btn-logout">Logout</a>
+    </div>
+  </div>
+
+  <div class="page-wrap">
+    <!-- Welcome -->
+    <div class="welcome-section">
+      <h1>Welcome, {{ user.full_name.split(' ')[0] }}</h1>
+      <p>Multilingual Sign Language Translator — Your Dashboard</p>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="actions-grid">
+      <a href="/" class="action-card translator" id="action-translator">
+        <div class="action-icon">🤟</div>
+        <h3>Translator</h3>
+        <p>Real-time sign language recognition</p>
+      </a>
+      <a href="/" class="action-card teach" id="action-teach"
+         onclick="sessionStorage.setItem('goto_tab','teach')">
+        <div class="action-icon">📚</div>
+        <h3>Teach</h3>
+        <p>Teach custom signs to the model</p>
+      </a>
+      <a href="/dashboard/submissions" class="action-card submissions" id="action-submissions">
+        <div class="action-icon">📋</div>
+        <h3>My Submissions</h3>
+        <p>View your training submissions</p>
+      </a>
+      <a href="/dashboard/activity" class="action-card activity" id="action-activity">
+        <div class="action-icon">📊</div>
+        <h3>My Activity</h3>
+        <p>Your recent application activity</p>
+      </a>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="grid-2col">
+      <!-- Recent Submissions -->
+      <div class="card">
+        <div class="section-header">
+          <h2>My Training Submissions</h2>
+        </div>
+        {% if submissions %}
+          {% for s in submissions[:6] %}
+            <div class="submission-item">
+              <div>
+                <div class="submission-label">{{ s.gesture_label }}</div>
+                <div class="submission-meta">
+                  {{ s.gesture_type }} · {{ s.sample_count }} samples · {{ s.submitted_at.strftime('%d-%m-%Y %H:%M') if s.submitted_at else 'N/A' }}
+                </div>
+                {% if s.status == 'REJECTED' and s.rejection_reason %}
+                  <div class="rejection-reason">Reason: {{ s.rejection_reason }}</div>
+                {% endif %}
+              </div>
+              <span class="badge badge-{{ s.status | lower }}">{{ s.status }}</span>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p>No submissions yet. Start teaching new signs!</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card">
+        <div class="section-header">
+          <h2>Recent Activity</h2>
+        </div>
+        {% if activities %}
+          {% for a in activities[:10] %}
+            <div class="activity-item">
+              <div class="activity-time">{{ a.created_at.strftime('%H:%M') if a.created_at else '' }}</div>
+              <div>
+                <div class="activity-type">{{ a.activity_type }}</div>
+                <div class="activity-detail">
+                  {% if a.page %}{{ a.page }}{% endif %}
+                  {% if a.action %} · {{ a.action }}{% endif %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">📊</div>
+            <p>No activity recorded yet.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Track dashboard page view
+    fetch('/api/track_activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ activity_type: 'PAGE_VIEW', page: '/dashboard', action: 'OPEN' })
+    }).catch(() => {});
+  </script>
+</body>
+</html>

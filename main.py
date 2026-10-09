@@ -107,6 +107,12 @@ def main() -> None:
               config.PROCESSED_ALPHABETS_DIR, config.PROCESSED_WORDS_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
+    try:
+        from src.cloud_sync import sync_active_models_from_db
+        sync_active_models_from_db()
+    except Exception as e:
+        logger.error(f"Failed to sync models from cloud: {e}")
+
     warnings = _validate_environment()
     if warnings:
         logger.warning(
@@ -114,7 +120,7 @@ def main() -> None:
             + "\n\nThe app will launch with limited functionality until setup is complete."
         )
 
-    # Open camera + load models once. Frames go to /video_feed, not a desktop window.
+    # Load models. (Cloud Inference mode: camera is handled by the client browser)
     web_app.init_components()
 
     print("\n" + "=" * 60)
@@ -134,10 +140,6 @@ def main() -> None:
         logger.info("Interrupted by user (Ctrl+C).")
     finally:
         logger.info("Application exiting.")
-        with web_app.cap_lock:
-            if web_app.cap is not None and web_app.cap.isOpened():
-                web_app.cap.release()
-                logger.info("Camera released.")
         if web_app.predictor:
             web_app.predictor.close()
 

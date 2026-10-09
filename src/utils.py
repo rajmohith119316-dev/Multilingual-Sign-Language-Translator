@@ -220,16 +220,54 @@ def draw_prediction_banner(
     translation: str = "",
     banner_h: int = 72,
 ) -> None:
-    """Semi-transparent prediction banner at the top of the frame."""
     overlay = frame.copy()
     cv2.rectangle(overlay, (0, 0), (frame.shape[1], banner_h), (10, 10, 20), -1)
     cv2.addWeighted(overlay, 0.65, frame, 0.35, 0, frame)
-
-    cv2.putText(frame, f"Sign: {label}  ({confidence * 100:.1f}%)",
-                (12, 38), cv2.FONT_HERSHEY_DUPLEX, 1.1, (0, 230, 100), 2, cv2.LINE_AA)
+    
     if translation and translation != label:
-        cv2.putText(frame, f"-> {translation}",
-                    (12, 62), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 220, 50), 1, cv2.LINE_AA)
+        primary_text = translation
+        secondary_text = f"English: {label}"
+    else:
+        primary_text = label
+        secondary_text = ""
+
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(img_pil)
+        
+        try:
+            font_primary = ImageFont.truetype("segoeui.ttf", 32)
+        except IOError:
+            try:
+                font_primary = ImageFont.truetype("arial.ttf", 32)
+            except IOError:
+                font_primary = ImageFont.load_default()
+                
+        try:
+            font_secondary = ImageFont.truetype("segoeui.ttf", 16)
+        except IOError:
+            try:
+                font_secondary = ImageFont.truetype("arial.ttf", 16)
+            except IOError:
+                font_secondary = ImageFont.load_default()
+        
+        # Draw primary text (Translated language)
+        draw.text((12, 5), f"Sign: {primary_text} ({confidence * 100:.1f}%)", font=font_primary, fill=(0, 230, 100))
+        
+        # Draw secondary text (English)
+        if secondary_text:
+            draw.text((12, 45), secondary_text, font=font_secondary, fill=(255, 220, 50))
+            
+        frame[:] = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+    except Exception as e:
+        logger.warning(f"Failed to draw unicode text: {e}")
+        # Fallback to OpenCV putText
+        cv2.putText(frame, f"Sign: {primary_text}  ({confidence * 100:.1f}%)",
+                    (12, 38), cv2.FONT_HERSHEY_DUPLEX, 1.1, (0, 230, 100), 2, cv2.LINE_AA)
+        if secondary_text:
+            cv2.putText(frame, secondary_text,
+                        (12, 62), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 220, 50), 1, cv2.LINE_AA)
 
 
 

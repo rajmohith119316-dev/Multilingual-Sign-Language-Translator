@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
-    session, flash, jsonify, abort,
+    session, flash, jsonify, abort, Response,
 )
 
 from src.auth_models import UserManager
@@ -393,8 +393,28 @@ def admin_api_submission_samples(submission_id):
         "sample_path": s["sample_path"],
         "sample_type": s["sample_type"],
         "frame_count": s["frame_count"],
+        "preview_url": f"/admin/api/sample/{s['id']}/preview",
         "created_at": s["created_at"].strftime("%d-%m-%Y %H:%M") if s.get("created_at") else ""
     } for s in samples])
+
+
+@auth_bp.route("/admin/api/sample/<int:sample_id>/preview")
+@admin_required
+def admin_api_sample_preview(sample_id):
+    """Serve a rendered photo sample (PNG) or video sample (GIF/MP4) for a submission sample."""
+    sample = _mgr().get_sample_by_id(sample_id)
+    if not sample or not sample.get("sample_data"):
+        return abort(404)
+
+    from src.utils import render_sample_preview
+    data, mime_type = render_sample_preview(
+        sample["sample_data"],
+        sample_type=sample.get("sample_type", "npy")
+    )
+    if not data:
+        return abort(404)
+
+    return Response(data, mimetype=mime_type)
 
 
 @auth_bp.route("/admin/api/activity")

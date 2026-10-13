@@ -598,6 +598,18 @@ class UserManager:
             logger.error("get_submission_samples failed: %s", exc)
             return []
 
+    def get_sample_by_id(self, sample_id: int) -> Optional[dict]:
+        sql = "SELECT * FROM training_samples WHERE id = %s"
+        try:
+            with self._connect() as conn:
+                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                    cur.execute(sql, (sample_id,))
+                    row = cur.fetchone()
+            return dict(row) if row else None
+        except psycopg2.Error as exc:
+            logger.error("get_sample_by_id failed: %s", exc)
+            return None
+
     # ── Model Versions ────────────────────────────────────────────────────
 
     def get_model_versions(self) -> list[dict]:

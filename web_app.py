@@ -682,13 +682,20 @@ def init_components():
 if __name__ == "__main__":
     init_components()
 
+    import socket
+    try:
+        _local_ip = socket.gethostbyname(socket.gethostname())
+    except Exception:
+        _local_ip = "127.0.0.1"
+
     print("\n" + "=" * 60)
-    print("  Open http://127.0.0.1:5000 in your browser")
+    print("  Local URL:   http://127.0.0.1:5000")
+    print(f"  Network URL: http://{_local_ip}:5000 (for other devices on Wi-Fi)")
     print("  Press Ctrl+C to stop the server")
     print("=" * 60 + "\n")
 
     try:
-        app.run(host="127.0.0.1", port=5000, debug=False, threaded=True, use_reloader=False)
+        app.run(host="0.0.0.0", port=5000, debug=False, threaded=True, use_reloader=False)
     except KeyboardInterrupt:
         logger.info("Interrupted by user (Ctrl+C).")
     finally:

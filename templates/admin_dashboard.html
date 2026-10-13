@@ -564,13 +564,25 @@
   </div>
   <!-- View Samples Modal -->
   <div class="modal-overlay" id="samplesModal">
-    <div class="modal">
+    <div class="modal" style="max-width: 840px; width: 95%;">
       <button class="modal-close" onclick="closeSamplesModal()">&times;</button>
-      <h3>Samples: <span id="samplesGestureName" style="color:var(--text-primary)"></span></h3>
-      <div id="samplesListContainer">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-right: 28px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h3 style="margin: 0;">Samples: <span id="samplesGestureName" style="color:var(--accent)"></span></h3>
+          <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: var(--text-muted);">Visual hand pose photo & video sequence samples</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="samplesCountBadge" class="badge badge-pending" style="font-size: 0.75rem;"></span>
+          <div style="display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;">
+            <button type="button" id="btn-samples-gallery" onclick="setSamplesView('gallery')" style="padding: 4px 10px; font-size: 0.75rem; background: var(--accent); color: #000; border: none; cursor: pointer; font-weight: 600;">🖼️ Gallery</button>
+            <button type="button" id="btn-samples-table" onclick="setSamplesView('table')" style="padding: 4px 10px; font-size: 0.75rem; background: var(--bg-card); color: var(--text-secondary); border: none; cursor: pointer;">📋 Table</button>
+          </div>
+        </div>
+      </div>
+      <div id="samplesListContainer" style="max-height: 65vh; overflow-y: auto; padding-right: 4px;">
         <!-- populated by JS -->
       </div>
-      <div class="btn-row" style="margin-top: 10px;">
+      <div class="btn-row" style="margin-top: 14px; justify-content: flex-end;">
         <button type="button" class="btn-sm btn-toggle" onclick="closeSamplesModal()">Close</button>
       </div>
     </div>
@@ -731,33 +743,109 @@
     });
 
     // ── Samples Modal ───────────────────────────────────────────
+    let currentSamplesData = [];
+    let currentSamplesView = 'gallery';
+
+    function setSamplesView(view) {
+      currentSamplesView = view;
+      const btnGallery = document.getElementById('btn-samples-gallery');
+      const btnTable = document.getElementById('btn-samples-table');
+      if (view === 'gallery') {
+        btnGallery.style.background = 'var(--accent)';
+        btnGallery.style.color = '#000';
+        btnGallery.style.fontWeight = '600';
+        btnTable.style.background = 'var(--bg-card)';
+        btnTable.style.color = 'var(--text-secondary)';
+        btnTable.style.fontWeight = 'normal';
+      } else {
+        btnTable.style.background = 'var(--accent)';
+        btnTable.style.color = '#000';
+        btnTable.style.fontWeight = '600';
+        btnGallery.style.background = 'var(--bg-card)';
+        btnGallery.style.color = 'var(--text-secondary)';
+        btnGallery.style.fontWeight = 'normal';
+      }
+      renderSamplesContent();
+    }
+
+    function renderSamplesContent() {
+      const container = document.getElementById('samplesListContainer');
+      if (!currentSamplesData || !currentSamplesData.length) {
+        container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; padding: 20px; text-align: center;">No samples found for this submission.</p>';
+        return;
+      }
+
+      if (currentSamplesView === 'gallery') {
+        let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px;">';
+        currentSamplesData.forEach((s, idx) => {
+          const isVideo = (s.frame_count || 1) > 1;
+          const typeLabel = isVideo ? '🎞️ Video Sequence' : '📸 Photo Pose';
+          html += `
+            <div style="background: var(--bg-card-hover); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column;">
+              <div style="position: relative; width: 100%; aspect-ratio: 1/1; background: #0e0e1c; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                <img src="${s.preview_url}" 
+                     alt="Sample #${s.id}" 
+                     loading="lazy"
+                     style="width: 100%; height: 100%; object-fit: contain;"
+                     onerror="this.parentElement.innerHTML='<span style=\\'color:var(--text-muted); font-size:0.75rem;\\'>Preview error</span>'" />
+                <span style="position: absolute; top: 6px; left: 6px; font-size: 0.68rem; padding: 2px 6px; background: rgba(0,0,0,0.75); color: #fff; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15);">
+                  #${idx + 1}
+                </span>
+                <span style="position: absolute; top: 6px; right: 6px; font-size: 0.68rem; padding: 2px 6px; background: ${isVideo ? 'rgba(0, 240, 255, 0.25)' : 'rgba(0, 230, 110, 0.25)'}; color: ${isVideo ? 'var(--accent)' : 'var(--emerald)'}; border-radius: 4px; font-weight: 600;">
+                  ${s.frame_count || 1} frame${(s.frame_count || 1) > 1 ? 's' : ''}
+                </span>
+              </div>
+              <div style="padding: 10px; font-size: 0.78rem;">
+                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">${typeLabel}</div>
+                <div style="color: var(--text-muted); font-size: 0.72rem;">${s.created_at || 'Recorded sample'}</div>
+              </div>
+            </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      } else {
+        let html = '<table class="data-table" style="margin-bottom: 0;"><thead><tr><th style="width: 105px;">Preview</th><th>Format</th><th>Frames</th><th>Recorded Date</th></tr></thead><tbody>';
+        currentSamplesData.forEach((s, idx) => {
+          const isVideo = (s.frame_count || 1) > 1;
+          html += `<tr>
+            <td style="padding: 6px 10px;">
+              <div style="width: 85px; height: 85px; border-radius: 8px; border: 1px solid var(--border); overflow: hidden; background: #0e0e1c;">
+                <img src="${s.preview_url}" alt="Sample #${s.id}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy" />
+              </div>
+            </td>
+            <td>
+              <span class="badge ${isVideo ? 'badge-word' : 'badge-alpha'}" style="font-size: 0.75rem;">
+                ${isVideo ? '🎞️ Video Sequence' : '📸 Photo Pose'}
+              </span>
+            </td>
+            <td style="font-weight: 600;">${s.frame_count || 1}</td>
+            <td style="font-size:0.75rem; color: var(--text-muted);">${s.created_at}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      }
+    }
+
     function viewSamples(id, label) {
       document.getElementById('samplesGestureName').innerText = label;
       const container = document.getElementById('samplesListContainer');
-      container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Loading samples...</p>';
+      const badge = document.getElementById('samplesCountBadge');
+      if (badge) badge.textContent = 'Loading...';
+      container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; padding: 25px; text-align: center;">Loading photo & video samples...</p>';
       document.getElementById('samplesModal').classList.add('open');
 
       fetch('/admin/api/submission/' + id + '/samples')
         .then(r => r.json())
         .then(data => {
-          if (!data.length) {
-            container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No samples found for this submission.</p>';
-            return;
-          }
-          let html = '<table class="data-table" style="margin-bottom: 0;"><thead><tr><th>Path</th><th>Type</th><th>Frames</th><th>Date</th></tr></thead><tbody>';
-          data.forEach(s => {
-            html += `<tr>
-              <td style="word-break:break-all; font-size:0.75rem;">${s.sample_path}</td>
-              <td>${s.sample_type}</td>
-              <td>${s.frame_count || '-'}</td>
-              <td style="font-size:0.75rem;">${s.created_at}</td>
-            </tr>`;
-          });
-          html += '</tbody></table>';
-          container.innerHTML = html;
+          currentSamplesData = data || [];
+          if (badge) badge.textContent = `${currentSamplesData.length} sample${currentSamplesData.length === 1 ? '' : 's'}`;
+          renderSamplesContent();
         })
         .catch(err => {
-          container.innerHTML = '<p style="color:var(--red); font-size:0.85rem;">Error loading samples.</p>';
+          console.error(err);
+          if (badge) badge.textContent = 'Error';
+          container.innerHTML = '<p style="color:var(--rose); font-size:0.85rem; padding: 25px; text-align: center;">Error loading samples.</p>';
         });
     }
 

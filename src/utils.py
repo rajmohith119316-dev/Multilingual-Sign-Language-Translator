@@ -289,3 +289,160 @@ def mirror_frame(frame: np.ndarray) -> np.ndarray:
 
 def resize_frame(frame: np.ndarray, w: int, h: int) -> np.ndarray:
     return cv2.resize(frame, (w, h), interpolation=cv2.INTER_LINEAR)
+
+
+def render_sample_preview(
+    sample_data: bytes,
+    sample_type: str = "npy",
+    width: int = 260,
+    height: int = 260,
+) -> tuple[Optional[bytes], str]:
+    """
+    Renders visual photo or video/animation preview for a training sample.
+
+    Returns:
+        (data_bytes, mime_type) e.g. (png_bytes, 'image/png') or (gif_bytes, 'image/gif')
+    """
+    if not sample_data:
+        return None, "image/png"
+
+    # If it's already an image binary (JPEG, PNG, GIF)
+    if sample_data[:3] == b"\xff\xd8\xff":
+        return sample_data, "image/jpeg"
+    if sample_data[:4] == b"\x89PNG":
+        return sample_data, "image/png"
+    if sample_data[:4] == b"GIF8":
+        return sample_data, "image/gif"
+    if len(sample_data) > 8 and sample_data[4:8] in (b"ftyp", b"moov"):
+        return sample_data, "video/mp4"
+
+    # Otherwise, it's a .npy landmarks file
+    import io
+    from PIL import Image
+
+    try:
+        arr = np.load(io.BytesIO(sample_data))
+    except Exception as exc:
+        logger.error("Failed to load sample array: %s", exc)
+        return None, "image/png"
+
+    # 1-Frame Alphabet Gesture (shape: (60,))
+    if arr.ndim == 1 and arr.shape[0] == 60:
+        pts = np.vstack([[0.0, 0.0, 0.0], arr.reshape(20, 3)])
+        xs, ys = pts[:, 0], pts[:, 1]
+        pad = 28
+        min_x, max_x = xs.min(), xs.max()
+        min_y, max_y = ys.min(), ys.max()
+        span_x = max(max_x - min_x, 1e-5)
+        span_y = max(max_y - min_y, 1e-5)
+        scale = min((width - 2 * pad) / span_x, (height - 2 * pad) / span_y)
+
+        px = np.int32(pad + (xs - min_x) * scale + (width - 2 * pad - span_x * scale) / 2)
+        py = np.int32(pad + (ys - min_y) * scale + (height - 2 * pad - span_y * scale) / 2)
+
+        img = np.zeros((height, width, 3), dtype=np.uint8)
+        img[:] = (18, 18, 30)
+
+        # Draw bones
+        for s, e in _HAND_CONNECTIONS:
+            cv2.line(img, (px[s], py[s]), (px[e], py[e]), (230, 235, 255), 3, cv2.LINE_AA)
+
+        # Draw joints
+        for i in range(21):
+            col = (0, 240, 255) if i == 0 else (0, 255, 140) if i in (4, 8, 12, 16, 20) else (120, 180, 255)
+            r = 5 if i in (0, 4, 8, 12, 16, 20) else 4
+            cv2.circle(img, (px[i], py[i]), r, col, -1)
+            cv2.circle(img, (px[i], py[i]), r + 1, (255, 255, 255), 1)
+
+        _, png = cv2.imencode(".png", img)
+        return png.tobytes(), "image/png"
+
+    # Multi-Frame Sequence / Word Gesture (shape: (N, 123) or (N, 60))
+    if arr.ndim == 2:
+        n_frames = arr.shape[0]
+        feat_dim = arr.shape[1]
+        gif_frames = []
+
+        step = max(1, n_frames // 30)
+        selected_indices = list(range(0, n_frames, step))[:30]
+
+        for idx in selected_indices:
+            frame_vec = arr[idx]
+            frame_img = np.zeros((height, width, 3), dtype=np.uint8)
+            frame_img[:] = (18, 18, 30)
+
+            if feat_dim == 123:
+                left_feat = frame_vec[:60]
+                right_feat = frame_vec[60:120]
+                inter = frame_vec[120:123]
+                has_left = not np.all(left_feat == 0)
+                has_right = not np.all(right_feat == 0)
+
+                pts_list = []
+                if has_left:
+                    l_pts = np.vstack([[0.0, 0.0, 0.0], left_feat.reshape(20, 3)])
+                    pts_list.append(l_pts)
+                if has_right:
+                    r_pts = np.vstack([[inter[0], inter[1], inter[2]], right_feat.reshape(20, 3) + inter])
+                    pts_list.append(r_pts)
+
+                if pts_list:
+                    all_c = np.vstack(pts_list)
+                    xs, ys = all_c[:, 0], all_c[:, 1]
+                    pad = 28
+                    min_x, max_x = xs.min(), xs.max()
+                    min_y, max_y = ys.min(), ys.max()
+                    span_x = max(max_x - min_x, 1e-5)
+                    span_y = max(max_y - min_y, 1e-5)
+                    scale = min((width - 2 * pad) / span_x, (height - 2 * pad) / span_y)
+
+                    def to_px(pts):
+                        px = np.int32(pad + (pts[:, 0] - min_x) * scale + (width - 2 * pad - span_x * scale) / 2)
+                        py = np.int32(pad + (pts[:, 1] - min_y) * scale + (height - 2 * pad - span_y * scale) / 2)
+                        return px, py
+
+                    if has_left:
+                        lpx, lpy = to_px(l_pts)
+                        for s, e in _HAND_CONNECTIONS:
+                            cv2.line(frame_img, (lpx[s], lpy[s]), (lpx[e], lpy[e]), (100, 200, 255), 2, cv2.LINE_AA)
+                        for i in range(21):
+                            cv2.circle(frame_img, (lpx[i], lpy[i]), 4, (0, 240, 255), -1)
+
+                    if has_right:
+                        rpx, rpy = to_px(r_pts)
+                        for s, e in _HAND_CONNECTIONS:
+                            cv2.line(frame_img, (rpx[s], rpy[s]), (rpx[e], rpy[e]), (100, 255, 180), 2, cv2.LINE_AA)
+                        for i in range(21):
+                            cv2.circle(frame_img, (rpx[i], rpy[i]), 4, (0, 255, 140), -1)
+            elif feat_dim == 60:
+                pts = np.vstack([[0.0, 0.0, 0.0], frame_vec.reshape(20, 3)])
+                xs, ys = pts[:, 0], pts[:, 1]
+                pad = 28
+                min_x, max_x = xs.min(), xs.max()
+                min_y, max_y = ys.min(), ys.max()
+                span_x = max(max_x - min_x, 1e-5)
+                span_y = max(max_y - min_y, 1e-5)
+                scale = min((width - 2 * pad) / span_x, (height - 2 * pad) / span_y)
+                px = np.int32(pad + (xs - min_x) * scale + (width - 2 * pad - span_x * scale) / 2)
+                py = np.int32(pad + (ys - min_y) * scale + (height - 2 * pad - span_y * scale) / 2)
+                for s, e in _HAND_CONNECTIONS:
+                    cv2.line(frame_img, (px[s], py[s]), (px[e], py[e]), (230, 235, 255), 2, cv2.LINE_AA)
+                for i in range(21):
+                    cv2.circle(frame_img, (px[i], py[i]), 4, (0, 240, 255), -1)
+
+            rgb = cv2.cvtColor(frame_img, cv2.COLOR_BGR2RGB)
+            gif_frames.append(Image.fromarray(rgb))
+
+        if gif_frames:
+            buf = io.BytesIO()
+            gif_frames[0].save(
+                buf,
+                format="GIF",
+                save_all=True,
+                append_images=gif_frames[1:],
+                duration=65,
+                loop=0,
+            )
+            return buf.getvalue(), "image/gif"
+
+    return None, "image/png"

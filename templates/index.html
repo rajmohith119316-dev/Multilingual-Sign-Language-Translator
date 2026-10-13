@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Multilingual Real-Time Sign Language Translator — AI-powered gesture recognition with 3D hand models, multi-language translation, and teaching mode." />
-  <title>SignLingo — Multilingual Sign Language Translator</title>
+  <meta name="description" content="Multilingual Real-Time Sign Language Translator - Gesture recognition with 3D hand models, multi-language translation, and teaching mode." />
+  <title>SignLingo - Multilingual Sign Language Translator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -24,9 +24,9 @@
       --accent: #00e5cc;
       --accent-dim: #00e5cc20;
       --accent-glow: #00e5cc40;
-      --purple: #7c3aed;
-      --purple-dim: #7c3aed20;
-      --purple-glow: #7c3aed50;
+      --purple: #38bdf8;
+      --purple-dim: #38bdf820;
+      --purple-glow: #38bdf850;
       --pink: #ec4899;
       --blue: #38bdf8;
       --green: #22c55e;
@@ -35,11 +35,11 @@
       --text-primary: #e8e8f0;
       --text-secondary: #8888b0;
       --text-muted: #5a5a80;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 20px;
-      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --radius-sm: 4px;
+      --radius-md: 4px;
+      --radius-lg: 4px;
+      --radius-xl: 4px;
+      --shadow-glow: 0 0 30px rgba(56, 189, 248, 0.15);
       --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -48,7 +48,7 @@
        Reset & Base
        ═══════════════════════════════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    html {  }
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg-primary);
@@ -62,17 +62,7 @@
     ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
 
     /* Ambient background particles */
-    body::before {
-      content: '';
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background:
-        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
-        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent),
-        radial-gradient(ellipse 400px 300px at 50% 50%, rgba(236,72,153,0.04), transparent);
-      pointer-events: none;
-      z-index: 0;
-    }
+    body::before { display: none; }
 
     /* ═══════════════════════════════════════════════════════════
        Navigation
@@ -131,13 +121,10 @@
       width: 8px; height: 8px;
       border-radius: 50%;
       background: var(--green);
-      animation: pulse-dot 2s ease-in-out infinite;
+      
     }
-    .status-dot.offline { background: var(--red); animation: none; }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.3); }
-    }
+    .status-dot.offline { background: var(--red);  }
+    
     .status-text { font-size: 0.75rem; color: var(--text-muted); }
 
     /* ═══════════════════════════════════════════════════════════
@@ -153,13 +140,10 @@
       padding: 24px;
       max-width: 1400px;
       margin: 0 auto;
-      animation: fadeIn 0.4s ease;
+      
     }
     .page.active { display: block; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
+    
 
     /* ═══════════════════════════════════════════════════════════
        Cards & Common Components
@@ -233,12 +217,12 @@
       color: white;
     }
     .btn-danger:hover { transform: translateY(-1px); }
-    .btn-purple {
-      background: linear-gradient(135deg, var(--purple), #6d28d9);
+    .btn-blue {
+      background: var(--blue);
       color: white;
       box-shadow: 0 2px 16px var(--purple-glow);
     }
-    .btn-purple:hover { transform: translateY(-1px); box-shadow: 0 4px 24px var(--purple-glow); }
+    .btn-blue:hover { transform: translateY(-1px); box-shadow: 0 4px 24px var(--purple-glow); }
     .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
 
     /* Inputs */
@@ -267,7 +251,7 @@
     .toggle-wrapper { display: flex; align-items: center; gap: 10px; }
     .toggle {
       position: relative; width: 44px; height: 24px;
-      background: var(--bg-secondary); border-radius: 12px;
+      background: var(--bg-secondary); border-radius: 4px;
       cursor: pointer; transition: background var(--transition);
       border: 1px solid var(--border);
     }
@@ -287,7 +271,7 @@
     .badge {
       display: inline-flex; align-items: center; gap: 5px;
       padding: 4px 12px;
-      border-radius: 20px;
+      border-radius: 4px;
       font-size: 0.75rem; font-weight: 600;
       text-transform: uppercase; letter-spacing: 0.8px;
     }
@@ -312,7 +296,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       PAGE 1 — Recognition & Translation
+       PAGE 1 - Recognition & Translation
        ═══════════════════════════════════════════════════════════ */
     .p1-grid {
       display: grid;
@@ -324,6 +308,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
       overflow: hidden;
+      position: relative;
     }
     .p1-feed-header {
       padding: 14px 18px;
@@ -342,11 +327,14 @@
     .live-indicator::before {
       content: ''; width: 8px; height: 8px;
       background: var(--red); border-radius: 50%;
-      animation: pulse-dot 1.5s ease-in-out infinite;
+      
     }
     #video-feed {
       width: 100%; display: block;
       background: #000;
+      min-height: 380px;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
     }
     .p1-buffer-bar {
       padding: 12px 18px;
@@ -356,6 +344,38 @@
     }
     .p1-buffer-bar .progress-track { flex: 1; }
     .p1-buffer-label { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+
+    .mode-btn-group {
+      display: flex;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .mode-select-btn {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .mode-select-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .mode-select-btn.active {
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+    }
 
     .p1-sidebar { display: flex; flex-direction: column; gap: 16px; }
 
@@ -410,7 +430,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       PAGE 2 — Teach New Gesture
+       PAGE 2 - Teach New Gesture
        ═══════════════════════════════════════════════════════════ */
     .p2-grid {
       display: grid;
@@ -440,7 +460,7 @@
     .p2-rec-dot {
       width: 10px; height: 10px;
       background: var(--red); border-radius: 50%;
-      animation: pulse-dot 1s ease-in-out infinite;
+      
     }
     .p2-steps {
       display: flex; flex-direction: column; gap: 16px;
@@ -453,7 +473,7 @@
     .p2-step-num {
       width: 36px; height: 36px;
       border-radius: 50%;
-      background: linear-gradient(135deg, var(--purple), var(--accent));
+      background: var(--blue));
       display: flex; align-items: center; justify-content: center;
       font-weight: 700; font-size: 0.85rem;
       color: white;
@@ -472,7 +492,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       PAGE 3 — 3D Animation & Learn Gestures
+       PAGE 3 - 3D Animation & Learn Gestures
        ═══════════════════════════════════════════════════════════ */
     .p3-grid {
       display: grid;
@@ -523,7 +543,7 @@
     }
     .p3-gesture-name {
       font-size: 5rem; font-weight: 800;
-      background: linear-gradient(135deg, var(--purple), var(--pink));
+      background: var(--blue));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -600,7 +620,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       PAGE 4 — History
+       PAGE 4 - History
        ═══════════════════════════════════════════════════════════ */
     .p4-stats-grid {
       display: grid;
@@ -692,17 +712,14 @@
     /* ═══════════════════════════════════════════════════════════
        Micro-animations
        ═══════════════════════════════════════════════════════════ */
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
+    
     .shimmer-text {
       background: linear-gradient(90deg, var(--accent), var(--purple), var(--pink), var(--accent));
       background-size: 200% 100%;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      animation: shimmer 4s linear infinite;
+      
     }
   </style>
 </head>
@@ -717,25 +734,26 @@
 
     <div class="nav-tabs" id="nav-tabs">
       <button class="nav-tab active" data-page="page-recognize" id="tab-recognize">
-        <span class="tab-icon">📷</span> Recognition
+        <span class="tab-icon"></span> Recognition
       </button>
       <button class="nav-tab" data-page="page-teach" id="tab-teach">
-        <span class="tab-icon">🎓</span> Teach
+        <span class="tab-icon"></span> Teach
       </button>
       <button class="nav-tab" data-page="page-3d" id="tab-3d">
-        <span class="tab-icon">✋</span> 3D &amp; Learn
+        <span class="tab-icon"></span> 3D &amp; Learn
       </button>
       <button class="nav-tab" data-page="page-history" id="tab-history">
-        <span class="tab-icon">📊</span> History
+        <span class="tab-icon"></span> History
       </button>
     </div>
 
     <div class="nav-status">
       <div class="status-dot" id="status-dot"></div>
-      <span class="status-text" id="status-text" style="margin-right: 12px;">System ready</span>
+      <span class="status-text" id="status-text" style="margin-right: 8px;">System ready</span>
+
       
       {% if session.get('user_id') %}
-        <a href="/dashboard" style="color: var(--accent); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-right: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated);">📊 Dashboard</a>
+        <a href="/dashboard" style="color: var(--accent); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-right: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated);"> Dashboard</a>
         <a href="/auth/logout" style="color: var(--text-secondary); font-size: 0.8rem; text-decoration: none;">Logout</a>
       {% else %}
         <a href="/auth/login" style="color: var(--text-primary); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-right: 12px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-dim);">Login</a>
@@ -756,9 +774,15 @@
         <div class="p1-feed-card">
           <div class="p1-feed-header">
             <div class="title">
-              <span>📷</span> Camera Feed
+              <span>📹</span> Camera Feed
             </div>
             <div class="live-indicator" id="live-indicator">LIVE</div>
+          </div>
+          <div id="camera-loading-overlay" style="position: absolute; inset: 48px 0 45px 0; background: rgba(12, 12, 29, 0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 5; text-align: center; padding: 20px;">
+            <div style="font-size: 2.2rem;">📷</div>
+            <div style="font-weight: 600; color: var(--text-primary); font-size: 1rem;" id="cam-overlay-title">Starting Camera…</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); max-width: 340px;" id="cam-overlay-desc">Please allow camera access in your browser to start recognition.</div>
+            <button class="btn btn-primary" id="btn-cam-retry" onclick="processFrameLoop()" style="display: none; padding: 6px 16px; font-size: 0.8rem; margin-top: 6px; cursor: pointer;">Retry Camera</button>
           </div>
           <img id="video-feed" alt="Live webcam feed" />
           <div class="p1-buffer-bar">
@@ -774,26 +798,33 @@
         <div class="p1-sidebar">
           <!-- Router Mode -->
           <div class="card">
-            <div class="card-title"><span class="icon">🧠</span> MoE Router</div>
-            <div id="mode-badge" class="badge badge-idle" style="font-size: 0.8rem;">⬜ IDLE — No Hands</div>
+            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span><span class="icon">⚡</span> MoE Router</span>
+              <div id="mode-badge" class="badge badge-idle" style="font-size: 0.8rem;"> IDLE - No Hands</div>
+            </div>
+            <div class="mode-btn-group">
+              <button type="button" class="mode-select-btn active" id="btn-mode-auto" onclick="setMode('AUTO')">Auto (1H=Letters / 2H=Words)</button>
+              <button type="button" class="mode-select-btn" id="btn-mode-alpha" onclick="setMode('ALPHABET')">Letters Only</button>
+              <button type="button" class="mode-select-btn" id="btn-mode-word" onclick="setMode('WORD')">Words Only</button>
+            </div>
           </div>
 
           <!-- Prediction Hero -->
           <div class="card prediction-hero">
-            <div class="card-title"><span class="icon">🔍</span> Detected Sign</div>
-            <div class="prediction-sign" id="pred-sign">—</div>
+            <div class="card-title"><span class="icon"></span> Detected Sign</div>
+            <div class="prediction-sign" id="pred-sign">-</div>
             <div class="prediction-conf">
               Confidence: <span class="value" id="pred-conf">0.0%</span>
             </div>
             <div class="translation-box">
-              <div class="translation-text" id="pred-translation">—</div>
+              <div class="translation-text" id="pred-translation">-</div>
               <div class="translation-lang" id="pred-lang-label">English</div>
             </div>
           </div>
 
           <!-- Language & TTS -->
           <div class="card">
-            <div class="card-title"><span class="icon">🌍</span> Translation Controls</div>
+            <div class="card-title"><span class="icon">🌐</span> Translation Controls</div>
             <div class="control-row">
               <label>Language</label>
               <select class="input" id="language-select">
@@ -825,16 +856,16 @@
           <div class="p2-feed-container">
             <img id="teach-feed" alt="Teaching preview" />
             <div class="p2-overlay-badge" id="teach-badge">
-              <span>🎬</span> Preview
+              <span></span> Preview
             </div>
           </div>
           <div class="card" style="margin-top: 16px;">
-            <div class="card-title"><span class="icon">💡</span> Tips</div>
+            <div class="card-title"><span class="icon"></span> Tips</div>
             <ul style="list-style: none; padding: 0; font-size: 0.85rem; color: var(--text-secondary);">
-              <li style="margin-bottom: 6px;">✅ Use <strong>both hands</strong> for word gestures</li>
-              <li style="margin-bottom: 6px;">✅ Record {{ num_recordings }} clear samples minimum</li>
-              <li style="margin-bottom: 6px;">✅ Good lighting improves accuracy</li>
-              <li>✅ After training, test on the Recognition page</li>
+              <li style="margin-bottom: 6px;"> Use <strong>both hands</strong> for word gestures</li>
+              <li style="margin-bottom: 6px;"> Record {{ num_recordings }} clear samples minimum</li>
+              <li style="margin-bottom: 6px;"> Good lighting improves accuracy</li>
+              <li> After training, test on the Recognition page</li>
             </ul>
           </div>
         </div>
@@ -869,7 +900,7 @@
                 <div class="progress-fill" id="teach-rec-progress" style="width: 0%;"></div>
               </div>
               <button class="btn btn-primary" style="margin-top: 12px; width: 100%;" id="btn-teach-record">
-                🎥 Start Recording
+                 Start Recording
               </button>
               <div id="teach-rec-status" style="font-size: 0.8rem; color: var(--amber); margin-top: 8px; min-height: 1.2em;"></div>
             </div>
@@ -885,10 +916,19 @@
               </div>
               <div id="teach-train-status" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px; min-height: 1.2em;"></div>
               <div style="display: flex; gap: 8px; margin-top: 12px;">
-                <button class="btn btn-purple" id="btn-teach-train" disabled style="flex: 1;">🧠 Submit for Review</button>
-                <button class="btn btn-danger" id="btn-teach-reset">🔄 Reset</button>
+                <button class="btn btn-blue" id="btn-teach-train" disabled style="flex: 1;"> Submit for Review</button>
+                <button class="btn btn-danger" id="btn-teach-reset"> Reset</button>
               </div>
             </div>
+          </div>
+
+          <!-- Cloud Sync -->
+          <div class="card p2-step-card" style="margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 18px;">
+            <button class="btn btn-primary" id="btn-teach-sync-cloud" onclick="syncCloudModels()" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+              <span id="teach-sync-icon">🔄</span>
+              <span id="teach-sync-text">Sync</span>
+            </button>
+            <div id="teach-sync-status" style="font-size: 0.8rem; color: var(--text-muted);"></div>
           </div>
         </div>
       </div>
@@ -916,7 +956,7 @@
             <div class="p3-gesture-name" id="gesture-3d-letter">A</div>
             <div class="p3-gesture-desc" id="gesture-3d-desc">Fist with thumb alongside</div>
             <div style="margin: 16px 0;">
-              <div class="card-title"><span class="icon">🖐️</span> Finger Positions</div>
+              <div class="card-title"><span class="icon">️</span> Finger Positions</div>
               <div class="p3-finger-bars" id="finger-bars">
                 <!-- Populated by JS -->
               </div>
@@ -925,7 +965,7 @@
           </div>
 
           <div class="card" style="margin-top: 16px;">
-            <div class="card-title"><span class="icon">📖</span> How to Sign</div>
+            <div class="card-title"><span class="icon"></span> How to Sign</div>
             <ol id="gesture-instructions" style="padding-left: 20px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
               <li>Make a fist with your dominant hand</li>
               <li>Place your thumb flat against the side of your fist</li>
@@ -978,8 +1018,8 @@
       <div class="p4-header-row">
         <div></div>
         <div class="p4-actions">
-          <button class="btn btn-secondary" id="btn-refresh-history">🔄 Refresh</button>
-          <button class="btn btn-danger" id="btn-clear-history">🗑 Clear All</button>
+          <button class="btn btn-secondary" id="btn-refresh-history"> Refresh</button>
+          <button class="btn btn-danger" id="btn-clear-history"> Clear All</button>
         </div>
       </div>
 
@@ -1000,7 +1040,7 @@
         </table>
       </div>
       <div class="p4-empty" id="history-empty" style="display: none;">
-        <div class="p4-empty-icon">📭</div>
+        <div class="p4-empty-icon"></div>
         <div>No predictions yet. Start the camera and show some signs!</div>
       </div>
     </div>
@@ -1046,14 +1086,14 @@
       });
     });
 
-    // ═══ PAGE 1 — Recognition State Polling ═══════════════════════════
+    // ═══ PAGE 1 - Recognition State Polling ═══════════════════════════
     const SEQUENCE_LENGTH = {{ sequence_length }};
     const NUM_RECORDINGS = {{ num_recordings }};
 
     const modeBadgeMap = {
-      'IDLE':     { text: '⬜ IDLE — No Hands',      cls: 'badge-idle' },
-      'ALPHABET': { text: '🔤 ALPHABET — 1 Hand',    cls: 'badge-alpha' },
-      'WORD':     { text: '💬 WORD — 2 Hands',        cls: 'badge-word' },
+      'IDLE':     { text: ' IDLE - No Hands',      cls: 'badge-idle' },
+      'ALPHABET': { text: ' ALPHABET - 1 Hand',    cls: 'badge-alpha' },
+      'WORD':     { text: ' WORD - 2 Hands',        cls: 'badge-word' },
     };
 
     async function processFrameLoop() {
@@ -1064,24 +1104,46 @@
       // Initialize camera if not done
       if (!video.srcObject) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              width: { ideal: 480, max: 640 }, 
+              height: { ideal: 360, max: 480 },
+              frameRate: { ideal: 30, max: 30 }
+            } 
+          });
           video.srcObject = stream;
           // Wait for video to be ready
           await new Promise(r => video.onloadedmetadata = r);
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+          const maxW = 480;
+          const scale = Math.min(1.0, maxW / Math.max(1, video.videoWidth));
+          canvas.width = Math.round(video.videoWidth * scale);
+          canvas.height = Math.round(video.videoHeight * scale);
         } catch(err) {
           document.getElementById('status-dot').className = 'status-dot offline';
-          document.getElementById('status-text').textContent = 'Camera error';
-          console.error(err);
-          setTimeout(processFrameLoop, 5000);
+          document.getElementById('status-text').textContent = 'Camera blocked or not found';
+          console.error('Camera access error:', err);
+          const title = document.getElementById('cam-overlay-title');
+          const desc = document.getElementById('cam-overlay-desc');
+          const retry = document.getElementById('btn-cam-retry');
+          if (title) title.textContent = 'Camera Access Blocked or Not Found';
+          if (desc) desc.textContent = 'Please enable camera permissions in your browser and ensure no other application is using the webcam.';
+          if (retry) retry.style.display = 'inline-flex';
+          setTimeout(processFrameLoop, 4000);
           return;
         }
       }
 
       try {
+        const maxW = 480;
+        const scale = Math.min(1.0, maxW / Math.max(1, video.videoWidth));
+        const targetW = Math.round(video.videoWidth * scale);
+        const targetH = Math.round(video.videoHeight * scale);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
+        }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const b64 = canvas.toDataURL('image/jpeg', 0.7);
+        const b64 = canvas.toDataURL('image/jpeg', 0.52);
 
         const res = await fetch('/api/process_frame', {
           method: 'POST',
@@ -1092,9 +1154,19 @@
         if (!res.ok) throw new Error("API error");
         const data = await res.json();
         
-        // Update images
-        document.getElementById('video-feed').src = data.image;
-        document.getElementById('teach-feed').src = data.image;
+        // Hide loading overlay once frames are flowing
+        const overlay = document.getElementById('camera-loading-overlay');
+        if (overlay && overlay.style.display !== 'none') {
+          overlay.style.display = 'none';
+        }
+
+        // Update only the currently active visible feed to avoid duplicate DOM decode/layout overhead
+        const teachPage = document.getElementById('page-teach');
+        if (teachPage && teachPage.classList.contains('active')) {
+          document.getElementById('teach-feed').src = data.image;
+        } else {
+          document.getElementById('video-feed').src = data.image;
+        }
 
         const s = data.state;
 
@@ -1103,8 +1175,8 @@
           document.getElementById('pred-sign').textContent = s.translation;
           document.getElementById('pred-translation').textContent = `English: ${s.label}`;
         } else {
-          document.getElementById('pred-sign').textContent = s.label || '—';
-          document.getElementById('pred-translation').textContent = '—';
+          document.getElementById('pred-sign').textContent = s.label || '-';
+          document.getElementById('pred-translation').textContent = '-';
         }
         
         document.getElementById('pred-conf').textContent =
@@ -1138,7 +1210,7 @@
         if (s.recording_active) {
           document.getElementById('teach-badge').innerHTML = '<div class="p2-rec-dot"></div> REC';
         } else {
-          document.getElementById('teach-badge').innerHTML = '<span>🎬</span> Preview';
+          document.getElementById('teach-badge').innerHTML = '<span></span> Preview';
         }
 
         // Status dot
@@ -1148,14 +1220,85 @@
       } catch(err) {
         document.getElementById('status-dot').className = 'status-dot offline';
         document.getElementById('status-text').textContent = 'Connecting…';
+        await new Promise(r => setTimeout(r, 300));
       }
 
-      // Keep polling instantly (or set slight delay to not burn CPU)
+      // Keep polling smoothly via next animation frame
       requestAnimationFrame(processFrameLoop);
     }
     processFrameLoop();
 
-    // ═══ PAGE 1 — Controls ═══════════════════════════════════════════
+    // ═══ Mode Preference Control ══════════════════════════════════════
+    function syncModeButtons(mode) {
+      document.querySelectorAll('.mode-select-btn').forEach(b => b.classList.remove('active'));
+      const idMap = { 'AUTO': 'btn-mode-auto', 'ALPHABET': 'btn-mode-alpha', 'WORD': 'btn-mode-word' };
+      const el = document.getElementById(idMap[mode] || 'btn-mode-auto');
+      if (el) el.classList.add('active');
+    }
+
+    async function setMode(mode) {
+      syncModeButtons(mode);
+      try {
+        await post('/api/set_mode', { mode });
+      } catch (err) {
+        console.error('Failed to set mode preference:', err);
+      }
+    }
+
+    // ═══ Teach Module Cloud Sync ══════════════════════════════════════
+    async function syncCloudModels() {
+      const btn = document.getElementById('btn-teach-sync-cloud');
+      const icon = document.getElementById('teach-sync-icon');
+      const text = document.getElementById('teach-sync-text');
+      const statusEl = document.getElementById('teach-sync-status');
+
+      if (btn) btn.disabled = true;
+      if (icon) icon.textContent = '⏳';
+      if (text) text.textContent = 'Syncing…';
+      if (statusEl) {
+        statusEl.textContent = 'Syncing models…';
+        statusEl.style.color = 'var(--amber)';
+      }
+
+      try {
+        const res = await post('/api/sync_cloud_models', {});
+        if (res && res.ok) {
+          if (icon) icon.textContent = '✅';
+          if (text) text.textContent = 'Synced!';
+          if (statusEl) {
+            const count = (res.updated && res.updated.length > 0) ? ` (Updated: ${res.updated.join(', ')})` : ' (Up to date)';
+            statusEl.textContent = 'Models synchronized!' + count;
+            statusEl.style.color = 'var(--emerald)';
+          }
+        } else {
+          if (icon) icon.textContent = '❌';
+          if (text) text.textContent = 'Sync Failed';
+          if (statusEl) {
+            statusEl.textContent = (res && res.error) ? res.error : 'Failed to synchronize models.';
+            statusEl.style.color = 'var(--rose)';
+          }
+        }
+      } catch (err) {
+        console.error('Cloud sync error:', err);
+        if (icon) icon.textContent = '❌';
+        if (text) text.textContent = 'Error';
+        if (statusEl) {
+          statusEl.textContent = 'Network or server error during sync.';
+          statusEl.style.color = 'var(--rose)';
+        }
+      } finally {
+        setTimeout(() => {
+          if (btn) btn.disabled = false;
+          if (icon) icon.textContent = '🔄';
+          if (text) text.textContent = 'Sync';
+          if (statusEl) {
+            statusEl.textContent = '';
+          }
+        }, 3000);
+      }
+    }
+
+    // ═══ PAGE 1 - Controls ═══════════════════════════════════════════
     document.getElementById('language-select').addEventListener('change', async (e) => {
       await post('/api/set_language', { language: e.target.value });
       document.getElementById('pred-lang-label').textContent = e.target.value;
@@ -1169,7 +1312,7 @@
       await post('/api/set_tts', { enabled: isOn });
     });
 
-    // ═══ PAGE 2 — Teach Custom Sign ══════════════════════════════════
+    // ═══ PAGE 2 - Teach Custom Sign ══════════════════════════════════
     document.getElementById('btn-teach-record').addEventListener('click', async () => {
       const label = document.getElementById('teach-label').value.trim();
       const type = document.getElementById('teach-type').value;
@@ -1197,7 +1340,7 @@
       document.getElementById('teach-train-status').textContent = '';
     });
 
-    // ═══ PAGE 3 — 3D Hand Model (Three.js) ══════════════════════════
+    // ═══ PAGE 3 - 3D Hand Model (Three.js) ══════════════════════════
     let hand3dInitialized = false;
     let handPoseData = {};
     let currentLetter = 'A';
@@ -1322,7 +1465,7 @@
       wrist.castShadow = true;
       handGroup.add(wrist);
 
-      // Fingers — each finger has 3 segments (bones)
+      // Fingers - each finger has 3 segments (bones)
       const fingerOffsets = [
         { x: -1.1, z: -0.6, len: [0.7, 0.5, 0.4], radius: 0.16, name: 'thumb' },
         { x: -0.6, z: 1.2,  len: [0.8, 0.6, 0.5], radius: 0.14, name: 'index' },
@@ -1520,7 +1663,7 @@
     // Load hand poses on page load
     loadHandPoses();
 
-    // ═══ PAGE 4 — History & Analytics ═════════════════════════════════
+    // ═══ PAGE 4 - History & Analytics ═════════════════════════════════
     let historyData = [];
     let sortCol = 'timestamp';
     let sortAsc = false;
@@ -1566,13 +1709,13 @@
       tbody.innerHTML = sorted.map(r => {
         const conf = r.confidence_score != null
           ? (r.confidence_score * 100).toFixed(1) + '%'
-          : '—';
+          : '-';
         return `<tr>
-          <td>${r.timestamp || '—'}</td>
-          <td style="color:var(--accent);font-weight:600;">${r.predicted_label || '—'}</td>
+          <td>${r.timestamp || '-'}</td>
+          <td style="color:var(--accent);font-weight:600;">${r.predicted_label || '-'}</td>
           <td><span class="badge ${parseFloat(conf) > 90 ? 'badge-success' : parseFloat(conf) > 70 ? 'badge-warn' : 'badge-danger'}">${conf}</span></td>
-          <td>${r.target_language || '—'}</td>
-          <td style="color:var(--amber);">${r.translated_text || '—'}</td>
+          <td>${r.target_language || '-'}</td>
+          <td style="color:var(--amber);">${r.translated_text || '-'}</td>
         </tr>`;
       }).join('');
     }

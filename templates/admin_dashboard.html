@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Admin Dashboard — SignLingo Multilingual Sign Language Translator" />
-  <title>Admin Dashboard — SignLingo</title>
+  <meta name="description" content="Admin Dashboard - SignLingo Multilingual Sign Language Translator" />
+  <title>Admin Dashboard - SignLingo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -13,17 +13,17 @@
       --bg-primary: #06060f; --bg-secondary: #0c0c1d; --bg-card: #12122a;
       --bg-card-hover: #181840; --bg-elevated: #1a1a3e; --border: #252555;
       --border-glow: #7c3aed40; --accent: #00e5cc; --accent-dim: #00e5cc20;
-      --accent-glow: #00e5cc40; --purple: #7c3aed; --purple-dim: #7c3aed20;
-      --purple-glow: #7c3aed50; --pink: #ec4899; --blue: #38bdf8;
+      --accent-glow: #00e5cc40; --purple: #38bdf8; --purple-dim: #38bdf820;
+      --purple-glow: #38bdf850; --pink: #ec4899; --blue: #38bdf8;
       --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
       --text-primary: #e8e8f0; --text-secondary: #8888b0; --text-muted: #5a5a80;
-      --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 20px;
-      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --radius-sm: 4px; --radius-md: 4px; --radius-lg: 4px; --radius-xl: 4px;
+      --shadow-glow: 0 0 30px rgba(56, 189, 248, 0.15);
       --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    html {  }
     body {
       font-family: 'Inter', system-ui, sans-serif;
       background: var(--bg-primary); color: var(--text-primary);
@@ -32,13 +32,7 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg-secondary); }
     ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
-    body::before {
-      content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background:
-        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
-        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent);
-      pointer-events: none; z-index: 0;
-    }
+    body::before { display: none; }
 
     /* Topbar */
     .topbar {
@@ -54,8 +48,8 @@
     }
     .topbar-brand svg { width: 28px; height: 28px; }
     .admin-badge {
-      padding: 3px 10px; border-radius: 12px;
-      background: linear-gradient(135deg, var(--purple), #6d28d9);
+      padding: 3px 10px; border-radius: 4px;
+      background: var(--blue);
       color: white; font-size: 0.68rem; font-weight: 700;
       text-transform: uppercase; letter-spacing: 1px; margin-left: 8px;
     }
@@ -79,9 +73,9 @@
     .page-wrap {
       margin-top: 64px; padding: 28px 24px; max-width: 1400px;
       margin-left: auto; margin-right: auto; position: relative; z-index: 1;
-      animation: fadeIn 0.5s ease;
+      
     }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    
 
     .page-title {
       font-size: 1.6rem; font-weight: 800; margin-bottom: 4px;
@@ -124,13 +118,13 @@
     }
     .admin-tab:hover { color: var(--text-primary); background: var(--bg-elevated); }
     .admin-tab.active {
-      color: var(--bg-primary); background: linear-gradient(135deg, var(--purple), #6d28d9);
+      color: var(--bg-primary); background: var(--blue);
       font-weight: 600; box-shadow: 0 2px 16px var(--purple-glow);
     }
 
     /* Panels */
     .tab-panel { display: none; }
-    .tab-panel.active { display: block; animation: fadeIn 0.3s ease; }
+    .tab-panel.active { display: block;  }
 
     /* Card */
     .card {
@@ -166,7 +160,7 @@
     .badge-pending  { background: rgba(245,158,11,0.15); color: var(--amber); }
     .badge-approved { background: rgba(34,197,94,0.15); color: var(--green); }
     .badge-rejected { background: rgba(239,68,68,0.15); color: var(--red); }
-    .badge-admin    { background: rgba(124,58,237,0.15); color: var(--purple); }
+    .badge-admin    { background: rgba(56,189,248,0.15); color: var(--purple); }
     .badge-user     { background: rgba(56,189,248,0.15); color: var(--blue); }
     .badge-active   { background: rgba(34,197,94,0.15); color: var(--green); }
     .badge-inactive { background: rgba(239,68,68,0.15); color: var(--red); }
@@ -233,7 +227,7 @@
       background: var(--bg-card); border: 1px solid var(--border);
       border-radius: var(--radius-xl); padding: 28px;
       max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
-      animation: fadeIn 0.3s ease;
+      
     }
     .modal h3 {
       font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;
@@ -293,8 +287,8 @@
       SignLingo <span class="admin-badge">Admin</span>
     </a>
     <div class="topbar-right">
-      <a href="/dashboard" class="topbar-link">📊 User Dashboard</a>
-      <a href="/" class="topbar-link">🤟 Translator</a>
+      <a href="/dashboard" class="topbar-link"> User Dashboard</a>
+      <a href="/" class="topbar-link"> Translator</a>
       <a href="/auth/logout" class="btn-logout">Logout</a>
     </div>
   </div>
@@ -333,10 +327,10 @@
 
     <!-- Tabs -->
     <div class="admin-tabs" id="adminTabs">
-      <button class="admin-tab active" data-tab="users">👥 Users</button>
-      <button class="admin-tab" data-tab="submissions">📋 Submissions</button>
-      <button class="admin-tab" data-tab="activity">📊 User Activity</button>
-      <button class="admin-tab" data-tab="models">🧠 Models</button>
+      <button class="admin-tab active" data-tab="users"> Users</button>
+      <button class="admin-tab" data-tab="submissions"> Submissions</button>
+      <button class="admin-tab" data-tab="activity"> User Activity</button>
+      <button class="admin-tab" data-tab="models"> Models</button>
     </div>
 
     <!-- ═══ Users Panel ═══ -->
@@ -415,7 +409,7 @@
               <td>
                 {% if s.status == 'PENDING' %}
                 <div class="action-group">
-                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')">🔍 View</button>
+                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
                   <form method="POST" action="/admin/review_submission" style="display:inline;">
                     <input type="hidden" name="submission_id" value="{{ s.id }}">
                     <input type="hidden" name="status" value="APPROVED">
@@ -426,13 +420,13 @@
                 </div>
                 {% elif s.status == 'REJECTED' and s.rejection_reason %}
                 <div class="action-group">
-                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')">🔍 View</button>
+                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
                   <span style="font-size:0.75rem;color:var(--red);font-style:italic;">{{ s.rejection_reason }}</span>
                 </div>
                 {% else %}
                 <div class="action-group">
-                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')">🔍 View</button>
-                  <span style="font-size:0.75rem;color:var(--text-muted);">—</span>
+                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
+                  <span style="font-size:0.75rem;color:var(--text-muted);">-</span>
                 </div>
                 {% endif %}
               </td>
@@ -518,7 +512,7 @@
           <span>Training Jobs</span>
           <form method="POST" action="/admin/trigger_retrain" style="margin: 0;">
             <input type="hidden" name="job_type" value="Word Model Retraining">
-            <button type="submit" class="btn-sm btn-approve" style="padding: 8px 16px;">🚀 Trigger Retrain</button>
+            <button type="submit" class="btn-sm btn-approve" style="padding: 8px 16px;"> Trigger Retrain</button>
           </form>
         </div>
         {% if training_jobs %}
@@ -530,9 +524,9 @@
               <td>#{{ j.id }}</td>
               <td>{{ j.job_type }}</td>
               <td><span class="badge badge-{{ 'approved' if j.status == 'COMPLETED' else 'pending' if j.status == 'RUNNING' else 'rejected' if j.status == 'FAILED' else 'user' }}">{{ j.status }}</span></td>
-              <td>{{ j.version_tag or '—' }}</td>
-              <td style="font-size:0.78rem;">{{ j.started_at.strftime('%d-%m-%Y %H:%M') if j.started_at else '—' }}</td>
-              <td style="font-size:0.78rem;">{{ j.completed_at.strftime('%d-%m-%Y %H:%M') if j.completed_at else '—' }}</td>
+              <td>{{ j.version_tag or '-' }}</td>
+              <td style="font-size:0.78rem;">{{ j.started_at.strftime('%d-%m-%Y %H:%M') if j.started_at else '-' }}</td>
+              <td style="font-size:0.78rem;">{{ j.completed_at.strftime('%d-%m-%Y %H:%M') if j.completed_at else '-' }}</td>
             </tr>
             {% endfor %}
           </tbody>

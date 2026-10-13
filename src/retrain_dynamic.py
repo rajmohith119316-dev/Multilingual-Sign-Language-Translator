@@ -244,7 +244,7 @@ def train_new_gesture(
         np.save(str(out_cls / f"{i:04d}.npy"), arr)
 
     # ── 6. Update Database & Clean Up ─────────────────────────────────────────
-    _prog(7, "Registering custom gesture in PostgreSQL database…")
+    _prog(7, "Registering custom gesture in PostgreSQL database & uploading to Cloud…")
     db = DatabaseManager()
     db.add_gesture(
         gesture_name=new_word_label,
@@ -253,7 +253,30 @@ def train_new_gesture(
         sample_count=len(X_new),
     )
 
-    logger.info("Fine-tuning complete: '%s' registered with %d samples.", new_word_label, len(X_new))
+    # ── 7. Upload to Cloud Neon Database & Hot-Reload ────────────────────────
+    try:
+        from src.cloud_sync import upload_model_to_db
+        vtag = f"{gesture_type}_Custom_{new_word_label}_{len(new_classes)}"
+        upload_model_to_db(
+            model_type=gesture_type,
+            model_path=model_path,
+            encoder_path=encoder_path,
+            version_tag=vtag,
+            parameters={"classes": new_classes},
+            notes=f"Continually trained gesture '{new_word_label}' ({len(X_new)} samples)",
+        )
+    except Exception as up_exc:
+        logger.warning("Cloud model upload skipped or failed: %s", up_exc)
+
+    try:
+        import web_app
+        if getattr(web_app, "predictor", None):
+            web_app.predictor.hot_reload()
+            logger.info("Hot-reloaded web_app predictor with new %s classes: %s", gesture_type, new_classes)
+    except Exception as hr_exc:
+        logger.debug("Local predictor hot-reload notice: %s", hr_exc)
+
+    logger.info("Fine-tuning complete: '%s' registered with %d samples and synced to cloud.", new_word_label, len(X_new))
 
 
 # ─── CLI ──────────────────────────────────────────────────────────────────────

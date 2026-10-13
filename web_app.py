@@ -242,6 +242,7 @@ prediction_state = {
     "confidence": 0.0,
     "translation": "—",
     "mode": MODE_IDLE,
+    "mode_preference": "AUTO",
     "word_buffer_fill": 0,
 }
 pred_lock = threading.Lock()
@@ -336,9 +337,13 @@ def api_process_frame():
     if frame is None:
         return jsonify({"error": "Bad image"}), 400
 
-    # We do NOT mirror the frame here because the client browser already captures it mirrored!
-    # Wait, the browser usually captures exactly what it sees. Let's let the frontend handle mirroring via CSS and flip it before drawing, OR we just mirror it here if needed.
-    # We will just mirror it to keep MoE features consistent with how they were trained.
+    # Ensure frame is within 480 max width for ultra-low latency inference
+    h, w = frame.shape[:2]
+    if w > 480:
+        scale = 480.0 / w
+        frame = cv2.resize(frame, (480, int(h * scale)), interpolation=cv2.INTER_AREA)
+
+    # Mirror frame to keep MoE features consistent with how they were trained
     frame = mirror_frame(frame)
     result, left_lm, right_lm, n_hands = predictor.update(frame)
     mode = predictor.current_mode
@@ -395,10 +400,9 @@ def api_process_frame():
             if n >= config.SEQUENCE_LENGTH:
                 _finish_recording()
 
-    # Send the frame back. It is already mirrored once at the top (which makes it act like a mirror),
-    # and the text was drawn forwards, so we leave it as is.
-    _, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
-    out_b64 = "data:image/jpeg;base64," + base64.b64encode(jpeg.tobytes()).decode('utf-8')
+    # Send the frame back. Use quality 55 for fast compression & smaller payload
+    _, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 55])
+    out_b64 = "data:image/jpeg;base64," + base64.b64encode(jpeg.tobytes()).decode('ascii')
 
     with pred_lock:
         pred_out = dict(prediction_state)
@@ -539,6 +543,19 @@ def api_set_tts():
     return jsonify({"ok": True, "tts_enabled": enabled})
 
 
+@app.route("/api/set_mode", methods=["POST"])
+def api_set_mode():
+    """Set MoE router mode preference: AUTO | ALPHABET | WORD."""
+    data = request.get_json(silent=True) or {}
+    mode = data.get("mode", "AUTO").upper()
+    if predictor and mode in ("AUTO", "ALPHABET", "WORD"):
+        predictor.set_mode_preference(mode)
+        with pred_lock:
+            prediction_state["mode_preference"] = mode
+        return jsonify({"ok": True, "mode": mode})
+    return jsonify({"error": "Invalid mode"}), 400
+
+
 @app.route("/api/history")
 def api_history():
     """Return recent prediction history from the database."""
@@ -583,6 +600,25 @@ def api_known_signs():
     })
 
 
+@app.route("/api/sync_cloud_models", methods=["POST"])
+def api_sync_cloud_models():
+    """Download latest active models from Neon DB and hot-reload predictor."""
+    try:
+        from src.cloud_sync import sync_active_models_from_db
+        res = sync_active_models_from_db(predictor=predictor, force=True)
+        return jsonify({
+            "ok": True,
+            "message": "Synchronized with Neon Cloud DB.",
+            "synced": res.get("synced", False),
+            "updated": res.get("updated", []),
+            "alphabets": predictor.known_alphabets if predictor else [],
+            "words": predictor.known_words if predictor else [],
+        })
+    except Exception as exc:
+        logger.error("api_sync_cloud_models failed: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Startup
 # ═══════════════════════════════════════════════════════════════════════════
@@ -606,9 +642,24 @@ def init_components():
     init_auth(user_mgr)
     logger.info("Auth system ready.")
 
+    # Sync latest active models from Neon DB before initializing predictor
+    logger.info("Checking Neon Cloud DB for latest active models…")
+    try:
+        from src.cloud_sync import sync_active_models_from_db, start_cloud_sync_poller
+        sync_active_models_from_db(force=False)
+    except Exception as cs_exc:
+        logger.warning("Cloud DB model sync on startup warning: %s", cs_exc)
+
     # MoE Predictor
     logger.info("Initializing MoE Predictor…")
     predictor = GesturePredictor()
+
+    # Start background cloud model sync poller (polls every 45s for models trained by other devices)
+    try:
+        from src.cloud_sync import start_cloud_sync_poller
+        start_cloud_sync_poller(predictor=predictor, interval_seconds=45)
+    except Exception as cp_exc:
+        logger.warning("Could not start background cloud model sync poller: %s", cp_exc)
 
     # Translator + TTS
     logger.info("Initializing translator…")

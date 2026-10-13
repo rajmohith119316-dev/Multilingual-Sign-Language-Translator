@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Register for SignLingo — Multilingual Sign Language Translator" />
-  <title>Register — SignLingo</title>
+  <meta name="description" content="Register for SignLingo - Multilingual Sign Language Translator" />
+  <title>Register - SignLingo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -23,9 +23,9 @@
       --accent: #00e5cc;
       --accent-dim: #00e5cc20;
       --accent-glow: #00e5cc40;
-      --purple: #7c3aed;
-      --purple-dim: #7c3aed20;
-      --purple-glow: #7c3aed50;
+      --purple: #38bdf8;
+      --purple-dim: #38bdf820;
+      --purple-glow: #38bdf850;
       --pink: #ec4899;
       --blue: #38bdf8;
       --green: #22c55e;
@@ -34,17 +34,17 @@
       --text-primary: #e8e8f0;
       --text-secondary: #8888b0;
       --text-muted: #5a5a80;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 20px;
-      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --radius-sm: 4px;
+      --radius-md: 4px;
+      --radius-lg: 4px;
+      --radius-xl: 4px;
+      --shadow-glow: 0 0 30px rgba(56, 189, 248, 0.15);
       --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; height: 100%; }
+    html {  height: 100%; }
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg-primary);
@@ -57,16 +57,7 @@
       justify-content: center;
     }
 
-    body::before {
-      content: '';
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background:
-        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
-        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent),
-        radial-gradient(ellipse 400px 300px at 50% 50%, rgba(236,72,153,0.04), transparent);
-      pointer-events: none; z-index: 0;
-    }
+    body::before { display: none; }
 
     /* Particles */
     .particles {
@@ -75,7 +66,7 @@
     }
     .particle {
       position: absolute; border-radius: 50%; opacity: 0.15;
-      animation: floatUp linear infinite;
+      
     }
     @keyframes floatUp {
       0%   { transform: translateY(100vh) scale(0); opacity: 0; }
@@ -89,7 +80,7 @@
       position: relative; z-index: 1;
       width: 100%; max-width: 500px;
       margin: 20px;
-      animation: fadeSlideUp 0.6s ease;
+      
     }
     @keyframes fadeSlideUp {
       from { opacity: 0; transform: translateY(30px); }
@@ -108,9 +99,9 @@
       content: '';
       position: absolute; top: 0; left: 0; right: 0;
       height: 2px;
-      background: linear-gradient(90deg, var(--purple), var(--accent), var(--pink), var(--purple));
+      background: var(--blue), var(--pink), var(--purple));
       background-size: 300% 100%;
-      animation: gradientShift 4s ease infinite;
+      
     }
     @keyframes gradientShift {
       0%, 100% { background-position: 0% 50%; }
@@ -188,7 +179,7 @@
       font-family: inherit; font-size: 0.95rem; font-weight: 700;
       cursor: pointer; transition: all var(--transition);
       letter-spacing: 0.5px; text-transform: uppercase;
-      background: linear-gradient(135deg, var(--purple), #6d28d9);
+      background: var(--blue);
       color: white;
       box-shadow: 0 2px 20px var(--purple-glow);
       margin-top: 4px;
@@ -222,7 +213,7 @@
       padding: 12px 16px; border-radius: var(--radius-md);
       font-size: 0.85rem; margin-bottom: 18px;
       display: flex; align-items: center; gap: 10px;
-      animation: fadeSlideUp 0.3s ease;
+      
     }
     .alert-error {
       background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5;
@@ -242,7 +233,7 @@
     .spinner {
       display: inline-block; width: 18px; height: 18px;
       border: 2px solid transparent; border-top-color: currentColor;
-      border-radius: 50%; animation: spin 0.6s linear infinite;
+      border-radius: 50%; 
       vertical-align: middle; margin-right: 8px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -326,7 +317,7 @@
             <input class="form-input" type="password" id="reg-password" name="password"
                    placeholder="Create a strong password" autocomplete="new-password"
                    required minlength="8" />
-            <button type="button" class="password-toggle" onclick="togglePassword('reg-password', this)" aria-label="Toggle password">👁</button>
+            <button type="button" class="password-toggle" onclick="togglePassword('reg-password', this)" aria-label="Toggle password"></button>
           </div>
           <div class="password-strength" id="strengthMeter">
             <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
@@ -339,11 +330,11 @@
           <div class="password-wrapper">
             <input class="form-input" type="password" id="reg-confirm" name="confirm_password"
                    placeholder="Re-enter your password" autocomplete="new-password" required />
-            <button type="button" class="password-toggle" onclick="togglePassword('reg-confirm', this)" aria-label="Toggle password">👁</button>
+            <button type="button" class="password-toggle" onclick="togglePassword('reg-confirm', this)" aria-label="Toggle password"></button>
           </div>
         </div>
 
-        <!-- Role is always USER — NEVER exposed in the form -->
+        <!-- Role is always USER - NEVER exposed in the form -->
 
         <button type="submit" class="btn-register" id="registerBtn">
           Create Account
@@ -380,8 +371,8 @@
 
     function togglePassword(id, btn) {
       const i = document.getElementById(id);
-      if (i.type === 'password') { i.type = 'text'; btn.textContent = '🙈'; }
-      else { i.type = 'password'; btn.textContent = '👁'; }
+      if (i.type === 'password') { i.type = 'text'; btn.textContent = ''; }
+      else { i.type = 'password'; btn.textContent = ''; }
     }
 
     // ── Password strength ─────────────────────────────────────────

@@ -20,6 +20,7 @@ import threading
 from pathlib import Path
 from typing import Optional
 
+import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -98,6 +99,12 @@ class GesturePredictor:
 
         # Current router mode (for GUI badge)
         self._current_mode: str = MODE_IDLE
+
+        # Router mode preference: "AUTO" | "ALPHABET" | "WORD"
+        self._mode_preference: str = "AUTO"
+        self._word_eval_counter: int = 0
+        self._last_word_eval: tuple[Optional[str], float] = (None, 0.0)
+        self._padded_buf: Optional[np.ndarray] = None
 
         # Load everything
         self._load_all()
@@ -246,6 +253,22 @@ class GesturePredictor:
             self._word_stable   = 0
             self._idle_frames   = 0
             self._current_mode  = MODE_IDLE
+            self._last_word_eval = (None, 0.0)
+            self._word_eval_counter = 0
+
+    @property
+    def mode_preference(self) -> str:
+        with self._lock:
+            return self._mode_preference
+
+    def set_mode_preference(self, mode: str) -> None:
+        with self._lock:
+            mode = (mode or "").strip().upper()
+            if mode in ("AUTO", "ALPHABET", "WORD"):
+                self._mode_preference = mode
+                if mode == "ALPHABET":
+                    self._word_buffer.clear()
+                    self._last_word_eval = (None, 0.0)
 
     @property
     def current_mode(self) -> str:
@@ -307,14 +330,24 @@ class GesturePredictor:
                 dim = max(h, w)
                 top_pad = (dim - h) // 2
                 left_pad = (dim - w) // 2
-                padded = np.zeros((dim, dim, 3), dtype=bgr_frame.dtype)
-                padded[top_pad:top_pad + h, left_pad:left_pad + w] = bgr_frame
-                rgb = np.ascontiguousarray(padded[:, :, ::-1])
+                if (self._padded_buf is None or
+                        self._padded_buf.shape != (dim, dim, 3) or
+                        self._padded_buf.dtype != bgr_frame.dtype):
+                    self._padded_buf = np.zeros((dim, dim, 3), dtype=bgr_frame.dtype)
+                else:
+                    if top_pad > 0:
+                        self._padded_buf[:top_pad, :] = 0
+                        self._padded_buf[top_pad + h:, :] = 0
+                    if left_pad > 0:
+                        self._padded_buf[:, :left_pad] = 0
+                        self._padded_buf[:, left_pad + w:] = 0
+                self._padded_buf[top_pad:top_pad + h, left_pad:left_pad + w] = bgr_frame
+                rgb = cv2.cvtColor(self._padded_buf, cv2.COLOR_BGR2RGB)
             else:
                 top_pad = 0
                 left_pad = 0
                 dim = h
-                rgb = np.ascontiguousarray(bgr_frame[:, :, ::-1])
+                rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
 
             mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
@@ -446,56 +479,62 @@ class GesturePredictor:
             # ── 0 hands: Idle Debounce ────────────────────────────────────────
             if n_hands == 0:
                 self._idle_frames += 1
-                if self._idle_frames >= 5:
+                if self._idle_frames >= 4:
                     self._current_mode = MODE_IDLE
                     self._alpha_stable = 0
                     self._word_stable  = 0
                     self._word_buffer.clear()
+                    self._last_word_eval = (None, 0.0)
                 return None, left_lm, right_lm, n_hands
 
             self._idle_frames = 0
 
-            # Always record temporal dual-hand features while hands are active
-            feat_123 = extract_dual_hand_features(left_lm, right_lm)   # (123,)
-            self._word_buffer.append(feat_123)
+            # Determine routing mode based on mode preference and hand count
+            if self._mode_preference == "ALPHABET":
+                target_mode = MODE_ALPHABET
+            elif self._mode_preference == "WORD":
+                target_mode = MODE_WORD
+            else:
+                # AUTO Mode:
+                # 1 hand  -> ALPHABET (Letters: A-Z, custom)
+                # 2 hands -> WORD     (Dual-hand dynamic words)
+                target_mode = MODE_ALPHABET if n_hands == 1 else MODE_WORD
 
-            # ── 1 hand: Can be Alphabet OR 1-handed Word gesture ──────────────
-            if n_hands == 1:
+            # ── Alphabet Mode (Single Hand) ───────────────────────────────────
+            if target_mode == MODE_ALPHABET:
+                self._current_mode = MODE_ALPHABET
+                self._word_stable  = 0
+                # Do NOT accumulate word buffer while in alphabet mode
+                self._word_buffer.clear()
+                self._last_word_eval = (None, 0.0)
+
                 active_lm = left_lm if left_lm is not None else right_lm
                 feat_60 = extract_single_hand_features(active_lm)
 
                 alpha_label, alpha_conf = self._eval_alphabet(feat_60)
-                word_label, word_conf   = self._eval_word()
-
-                # Prioritize Word if it matches a dynamic gesture with high confidence
-                if word_label is not None and word_conf >= self._conf_thresh and word_conf >= alpha_conf:
-                    self._current_mode = MODE_WORD
-                    self._alpha_stable = 0
-                    res = self._filter_word(word_label, word_conf)
-                    return res, left_lm, right_lm, n_hands
-
-                # Otherwise check Alphabet Expert
                 if alpha_label is not None and alpha_conf >= self._conf_thresh:
-                    self._current_mode = MODE_ALPHABET
-                    self._word_stable  = 0
                     res = self._filter_alphabet(alpha_label, alpha_conf)
                     return res, left_lm, right_lm, n_hands
 
-                # Neither passed threshold — set display mode based on higher confidence
-                if word_conf > alpha_conf and word_conf > 0.35:
-                    self._current_mode = MODE_WORD
-                else:
-                    self._current_mode = MODE_ALPHABET
                 return None, left_lm, right_lm, n_hands
 
-            # ── 2 hands: Word Expert ──────────────────────────────────────────
+            # ── Word Mode (Dual Hands / Words) ────────────────────────────────
             self._current_mode = MODE_WORD
             self._alpha_stable = 0
 
-            if len(self._word_buffer) < self._seq_len:
-                return None, left_lm, right_lm, n_hands   # Still filling buffer
+            feat_123 = extract_dual_hand_features(left_lm, right_lm)
+            self._word_buffer.append(feat_123)
 
-            word_label, word_conf = self._eval_word()
+            if len(self._word_buffer) < self._seq_len:
+                return None, left_lm, right_lm, n_hands  # Still filling buffer (1/30 ... 29/30)
+
+            # Buffer complete: evaluate Word Expert.
+            # Throttle GRU model execution to every 2 frames once full to prevent CPU lag
+            self._word_eval_counter += 1
+            if self._word_eval_counter % 2 == 0 or self._last_word_eval[0] is None:
+                self._last_word_eval = self._eval_word()
+            word_label, word_conf = self._last_word_eval
+
             if word_label is not None and word_conf >= self._conf_thresh:
                 res = self._filter_word(word_label, word_conf)
                 return res, left_lm, right_lm, n_hands

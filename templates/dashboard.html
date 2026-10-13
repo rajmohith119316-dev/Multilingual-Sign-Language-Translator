@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="User Dashboard — SignLingo Multilingual Sign Language Translator" />
-  <title>Dashboard — SignLingo</title>
+  <meta name="description" content="User Dashboard - SignLingo Multilingual Sign Language Translator" />
+  <title>Dashboard - SignLingo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -20,9 +20,9 @@
       --accent: #00e5cc;
       --accent-dim: #00e5cc20;
       --accent-glow: #00e5cc40;
-      --purple: #7c3aed;
-      --purple-dim: #7c3aed20;
-      --purple-glow: #7c3aed50;
+      --purple: #38bdf8;
+      --purple-dim: #38bdf820;
+      --purple-glow: #38bdf850;
       --pink: #ec4899;
       --blue: #38bdf8;
       --green: #22c55e;
@@ -31,17 +31,17 @@
       --text-primary: #e8e8f0;
       --text-secondary: #8888b0;
       --text-muted: #5a5a80;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 20px;
-      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --radius-sm: 4px;
+      --radius-md: 4px;
+      --radius-lg: 4px;
+      --radius-xl: 4px;
+      --shadow-glow: 0 0 30px rgba(56, 189, 248, 0.15);
       --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    html {  }
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg-primary);
@@ -54,15 +54,7 @@
     ::-webkit-scrollbar-track { background: var(--bg-secondary); }
     ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
 
-    body::before {
-      content: '';
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background:
-        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
-        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent),
-        radial-gradient(ellipse 400px 300px at 50% 50%, rgba(236,72,153,0.04), transparent);
-      pointer-events: none; z-index: 0;
-    }
+    body::before { display: none; }
 
     /* ── Top Bar ──────────────────────────────────────────────── */
     .topbar {
@@ -106,12 +98,9 @@
       margin-top: 64px; padding: 32px 24px;
       max-width: 1200px; margin-left: auto; margin-right: auto;
       position: relative; z-index: 1;
-      animation: fadeIn 0.5s ease;
+      
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(16px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
+    
 
     /* Welcome */
     .welcome-section { margin-bottom: 32px; }
@@ -153,7 +142,7 @@
 
     .action-card.translator::before { background: linear-gradient(90deg, var(--accent), var(--blue)); }
     .action-card.translator .action-icon { background: var(--accent-dim); }
-    .action-card.teach::before { background: linear-gradient(90deg, var(--purple), var(--pink)); }
+    .action-card.teach::before { background: var(--blue)); }
     .action-card.teach .action-icon { background: var(--purple-dim); }
     .action-card.submissions::before { background: linear-gradient(90deg, var(--amber), var(--green)); }
     .action-card.submissions .action-icon { background: rgba(245,158,11,0.15); }
@@ -193,7 +182,7 @@
 
     .badge {
       display: inline-flex; align-items: center; gap: 5px;
-      padding: 4px 12px; border-radius: 20px;
+      padding: 4px 12px; border-radius: 4px;
       font-size: 0.72rem; font-weight: 600;
       text-transform: uppercase; letter-spacing: 0.8px;
     }
@@ -275,7 +264,7 @@
     </a>
     <div class="topbar-right">
       {% if user.role == 'ADMIN' %}
-        <a href="/admin" class="admin-link">⚙ Admin Dashboard</a>
+        <a href="/admin" class="admin-link"> Admin Dashboard</a>
       {% endif %}
       <div class="topbar-user">
         <div class="user-avatar">{{ user.full_name[0] | upper }}</div>
@@ -289,29 +278,29 @@
     <!-- Welcome -->
     <div class="welcome-section">
       <h1>Welcome, {{ user.full_name.split(' ')[0] }}</h1>
-      <p>Multilingual Sign Language Translator — Your Dashboard</p>
+      <p>Multilingual Sign Language Translator - Your Dashboard</p>
     </div>
 
     <!-- Quick Actions -->
     <div class="actions-grid">
       <a href="/" class="action-card translator" id="action-translator">
-        <div class="action-icon">🤟</div>
+        <div class="action-icon"></div>
         <h3>Translator</h3>
         <p>Real-time sign language recognition</p>
       </a>
       <a href="/" class="action-card teach" id="action-teach"
          onclick="sessionStorage.setItem('goto_tab','teach')">
-        <div class="action-icon">📚</div>
+        <div class="action-icon"></div>
         <h3>Teach</h3>
         <p>Teach custom signs to the model</p>
       </a>
       <a href="/dashboard/submissions" class="action-card submissions" id="action-submissions">
-        <div class="action-icon">📋</div>
+        <div class="action-icon"></div>
         <h3>My Submissions</h3>
         <p>View your training submissions</p>
       </a>
       <a href="/dashboard/activity" class="action-card activity" id="action-activity">
-        <div class="action-icon">📊</div>
+        <div class="action-icon"></div>
         <h3>My Activity</h3>
         <p>Your recent application activity</p>
       </a>
@@ -341,7 +330,7 @@
           {% endfor %}
         {% else %}
           <div class="empty-state">
-            <div class="empty-icon">📭</div>
+            <div class="empty-icon"></div>
             <p>No submissions yet. Start teaching new signs!</p>
           </div>
         {% endif %}
@@ -367,7 +356,7 @@
           {% endfor %}
         {% else %}
           <div class="empty-state">
-            <div class="empty-icon">📊</div>
+            <div class="empty-icon"></div>
             <p>No activity recorded yet.</p>
           </div>
         {% endif %}

@@ -1,9 +1,9 @@
 """
-src/gui.py — Multi-Tab Tkinter GUI (MoE Edition)
+src/gui.py - Multi-Tab Tkinter GUI (MoE Edition)
 Tabs:
-  1. Real-Time Translator  — Camera, MoE Router Badge, Prediction, Translation, TTS
-  2. Teach Custom Sign     — Record → Retrain (Word Expert) → Hot-Reload
-  3. Prediction History    — SQLite ttk.Treeview logs
+  1. Real-Time Translator  - Camera, MoE Router Badge, Prediction, Translation, TTS
+  2. Teach Custom Sign     - Record → Retrain (Word Expert) → Hot-Reload
+  3. Prediction History    - SQLite ttk.Treeview logs
 """
 
 import logging
@@ -38,7 +38,7 @@ BG_DARK  = "#0d0d1a"
 BG_MID   = "#16162a"
 BG_CARD  = "#1e1e38"
 ACCENT   = "#00e5cc"
-ACCENT2  = "#7c3aed"
+ACCENT2  = "#38bdf8"
 TEXT_PRI = "#e2e2f0"
 TEXT_SEC = "#7878a8"
 SUCCESS  = "#00c896"
@@ -206,7 +206,7 @@ def open_robust_camera(preferred_index: int = config.CAMERA_INDEX) -> Optional[c
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TAB 1 — Real-Time Translator
+# TAB 1 - Real-Time Translator
 # ─────────────────────────────────────────────────────────────────────────────
 
 class LiveTranslatorTab(ttk.Frame):
@@ -227,9 +227,9 @@ class LiveTranslatorTab(ttk.Frame):
         self._last_badge_mode: str = ""
 
         # Prediction state
-        self._label: str  = "—"
+        self._label: str  = "-"
         self._conf: float = 0.0
-        self._tx: str     = "—"
+        self._tx: str     = "-"
         self._mode: str   = MODE_IDLE
 
         self._build()
@@ -244,7 +244,7 @@ class LiveTranslatorTab(ttk.Frame):
         left = ttk.Frame(self, style="Dark.TFrame", padding=12)
         left.grid(row=0, column=0, sticky="nsew")
 
-        ttk.Label(left, text="📷  Live Camera Feed", style="H1.TLabel").pack(anchor="w", pady=(0, 8))
+        ttk.Label(left, text="  Live Camera Feed", style="H1.TLabel").pack(anchor="w", pady=(0, 8))
 
         self._cam_lbl = tk.Label(left, bg=BG_DARK, width=self._PW, height=self._PH)
         self._cam_lbl.pack()
@@ -263,11 +263,11 @@ class LiveTranslatorTab(ttk.Frame):
         # Buttons
         btn_row = ttk.Frame(left, style="Dark.TFrame")
         btn_row.pack(fill="x", pady=8)
-        self._start_btn = ttk.Button(btn_row, text="▶  Start Camera",
+        self._start_btn = ttk.Button(btn_row, text="  Start Camera",
                                       style="Accent.TButton",
                                       command=self._toggle_camera)
         self._start_btn.pack(side="left", padx=(0, 8))
-        ttk.Button(btn_row, text="🔄  Reset Buffer",
+        ttk.Button(btn_row, text="  Reset Buffer",
                    style="Danger.TButton",
                    command=self._reset_buffer).pack(side="left")
 
@@ -282,7 +282,7 @@ class LiveTranslatorTab(ttk.Frame):
         # Router badge (text)
         ttk.Label(right, text="MoE Router Mode:", style="Card.TLabel").grid(
             row=1, column=0, sticky="w")
-        self._mode_var = tk.StringVar(value="⬜  Idle")
+        self._mode_var = tk.StringVar(value="  Idle")
         self._mode_lbl = tk.Label(right, textvariable=self._mode_var,
                                    bg=BG_CARD, fg=TEXT_SEC,
                                    font=("Segoe UI Semibold", 11), anchor="w")
@@ -300,7 +300,7 @@ class LiveTranslatorTab(ttk.Frame):
 
         # TTS
         self._tts_var = tk.BooleanVar(value=config.TTS_ENABLED_DEFAULT)
-        ttk.Checkbutton(right, text="🔊  Text-to-Speech",
+        ttk.Checkbutton(right, text="  Text-to-Speech",
                          variable=self._tts_var,
                          command=lambda: self._trans.set_tts_enabled(self._tts_var.get())
                          ).grid(row=5, column=0, sticky="w", pady=(0, 14))
@@ -310,7 +310,7 @@ class LiveTranslatorTab(ttk.Frame):
         # Prediction display
         ttk.Label(right, text="Detected Sign", style="H2.TLabel").grid(
             row=7, column=0, sticky="w", pady=(0, 4))
-        self._pred_lbl = tk.Label(right, text="—", font=F_GIANT,
+        self._pred_lbl = tk.Label(right, text="-", font=F_GIANT,
                                    bg=BG_CARD, fg=ACCENT, anchor="center")
         self._pred_lbl.grid(row=8, column=0, sticky="ew", pady=(0, 4))
 
@@ -328,7 +328,7 @@ class LiveTranslatorTab(ttk.Frame):
         # Translation box
         ttk.Label(right, text="Translation:", style="H2.TLabel").grid(
             row=13, column=0, sticky="w", pady=(0, 4))
-        self._tx_var = tk.StringVar(value="—")
+        self._tx_var = tk.StringVar(value="-")
         tk.Label(right, textvariable=self._tx_var,
                  bg=BG_MID, fg=WARN,
                  font=("Segoe UI", 14), anchor="center",
@@ -358,7 +358,7 @@ class LiveTranslatorTab(ttk.Frame):
             return
         self._stream = ThreadedCameraStream(raw_cap)
         self._running = True
-        self._start_btn.config(text="⏹  Stop Camera")
+        self._start_btn.config(text="  Stop Camera")
         self._status_var.set("Camera running…")
         self._tick()
 
@@ -371,7 +371,7 @@ class LiveTranslatorTab(ttk.Frame):
             self._stream.stop()
             self._stream = None
         self._cam_lbl.config(image="", text="Camera stopped", fg=TEXT_SEC)
-        self._start_btn.config(text="▶  Start Camera")
+        self._start_btn.config(text="  Start Camera")
         self._status_var.set("Camera stopped.")
         self._pred.reset_buffers()
 
@@ -382,7 +382,7 @@ class LiveTranslatorTab(ttk.Frame):
         t_start = time.monotonic()
         ret, frame = self._stream.read()
         if not ret or frame is None:
-            self._status_var.set("⚠ Frame read error.")
+            self._status_var.set(" Frame read error.")
             self._after = self.after(33, self._tick)
             return
 
@@ -416,7 +416,7 @@ class LiveTranslatorTab(ttk.Frame):
             label, conf, _mode = result
             self._on_stable_prediction(label, conf)
 
-        if self._label != "—":
+        if self._label != "-":
             draw_prediction_banner(frame, self._label, self._conf, self._tx)
 
         draw_status_bar(frame, self._status_var.get())
@@ -434,9 +434,9 @@ class LiveTranslatorTab(ttk.Frame):
 
     def _update_badge(self, mode: str) -> None:
         badge_cfg = {
-            MODE_IDLE:     ("⬜  Idle — No Hands",          TEXT_SEC),
-            MODE_ALPHABET: ("🔤  Alphabet Mode — 1 Hand",   INFO_CLR),
-            MODE_WORD:     ("💬  Word Mode — 2 Hands",       SUCCESS),
+            MODE_IDLE:     ("  Idle - No Hands",          TEXT_SEC),
+            MODE_ALPHABET: ("  Alphabet Mode - 1 Hand",   INFO_CLR),
+            MODE_WORD:     ("  Word Mode - 2 Hands",       SUCCESS),
         }
         text, color = badge_cfg.get(mode, (mode, TEXT_PRI))
         self._mode_var.set(text)
@@ -456,13 +456,13 @@ class LiveTranslatorTab(ttk.Frame):
 
     def _reset_buffer(self) -> None:
         self._pred.reset_buffers()
-        self._label = "—"
+        self._label = "-"
         self._conf  = 0.0
-        self._tx    = "—"
-        self._pred_lbl.config(text="—")
+        self._tx    = "-"
+        self._pred_lbl.config(text="-")
         self._conf_bar["value"] = 0
         self._conf_lbl.config(text="0.00%")
-        self._tx_var.set("—")
+        self._tx_var.set("-")
 
     def _on_lang_change(self, _=None) -> None:
         code = config.SUPPORTED_LANGUAGES.get(self._lang_var.get(), "en")
@@ -480,7 +480,7 @@ class LiveTranslatorTab(ttk.Frame):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TAB 2 — Teach Custom Sign (Word Expert Continual Learning)
+# TAB 2 - Teach Custom Sign (Word Expert Continual Learning)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TeachNewSignTab(ttk.Frame):
@@ -509,7 +509,7 @@ class TeachNewSignTab(ttk.Frame):
         left = ttk.Frame(self, style="Dark.TFrame", padding=12)
         left.grid(row=0, column=0, sticky="nsew")
 
-        ttk.Label(left, text="🎓  Teach New Word Sign", style="H1.TLabel").pack(
+        ttk.Label(left, text="  Teach New Word Sign", style="H1.TLabel").pack(
             anchor="w", pady=(0, 8))
 
         self._cam_lbl = tk.Label(left, bg=BG_DARK, width=520, height=400)
@@ -521,7 +521,7 @@ class TeachNewSignTab(ttk.Frame):
                   background=BG_DARK, foreground=WARN).pack(pady=4)
 
         ttk.Label(left,
-                  text="ℹ  Use BOTH hands while recording for the Word Expert.",
+                  text="  Use BOTH hands while recording for the Word Expert.",
                   style="Muted.TLabel").pack()
 
         # ── Controls ─────────────────────────────────────────────────────────
@@ -565,18 +565,18 @@ class TeachNewSignTab(ttk.Frame):
         ttk.Separator(right, orient="horizontal").grid(
             row=10, column=0, sticky="ew", pady=12)
 
-        self._rec_btn = ttk.Button(right, text="🎥  Start Recording",
+        self._rec_btn = ttk.Button(right, text="  Start Recording",
                                     style="Accent.TButton",
                                     command=self._start_recording)
         self._rec_btn.grid(row=11, column=0, sticky="ew", pady=4)
 
-        self._train_btn = ttk.Button(right, text="🧠  Train Model",
+        self._train_btn = ttk.Button(right, text="  Train Model",
                                       style="Accent.TButton",
                                       command=self._start_train,
                                       state="disabled")
         self._train_btn.grid(row=12, column=0, sticky="ew", pady=4)
 
-        ttk.Button(right, text="🔄  Reset All",
+        ttk.Button(right, text="  Reset All",
                    style="Danger.TButton",
                    command=self._reset).grid(row=13, column=0, sticky="ew", pady=(12, 0))
 
@@ -605,7 +605,7 @@ class TeachNewSignTab(ttk.Frame):
             return
         raw_cap = open_robust_camera(config.CAMERA_INDEX)
         if raw_cap is None:
-            self._rec_status.set("⚠ Cannot open webcam.")
+            self._rec_status.set(" Cannot open webcam.")
             return
         self._stream = ThreadedCameraStream(raw_cap)
         self._running = True
@@ -681,7 +681,7 @@ class TeachNewSignTab(ttk.Frame):
                 rem[0] -= 1
                 self.after(1000, tick)
             else:
-                self._rec_status.set(f"● Recording (0 / {config.SEQUENCE_LENGTH} frames)")
+                self._rec_status.set(f" Recording (0 / {config.SEQUENCE_LENGTH} frames)")
                 self._frame_buf = []
                 self._recording = True
                 self._capture_tick()
@@ -694,7 +694,7 @@ class TeachNewSignTab(ttk.Frame):
         t_start = time.monotonic()
         ret, frame = self._stream.read()
         if not ret or frame is None:
-            self._rec_status.set("⚠ Camera error.")
+            self._rec_status.set(" Camera error.")
             self._stop_recording(success=False)
             return
 
@@ -704,7 +704,7 @@ class TeachNewSignTab(ttk.Frame):
         if self._type_var.get() == "Alphabet (1 Hand)":
             active_lm = left_lm if left_lm is not None else right_lm
             if active_lm is None:
-                self._rec_status.set("⚠ Show 1 hand!")
+                self._rec_status.set(" Show 1 hand!")
                 # Do not append frame if hand is not visible for alphabet
             else:
                 from src.utils import extract_single_hand_features
@@ -716,7 +716,7 @@ class TeachNewSignTab(ttk.Frame):
                 feat = extract_dual_hand_features(left_lm, right_lm)   # (123,)
                 self._frame_buf.append(feat)
             else:
-                self._rec_status.set("⚠ Show hand(s) in view!")
+                self._rec_status.set(" Show hand(s) in view!")
 
         if left_lm:
             draw_hand_landmarks(frame, left_lm, color=(50, 200, 255))
@@ -724,7 +724,7 @@ class TeachNewSignTab(ttk.Frame):
             draw_hand_landmarks(frame, right_lm, color=(0, 230, 110))
 
         n = len(self._frame_buf)
-        self._rec_status.set(f"● Recording ({n} / {config.SEQUENCE_LENGTH} frames)")
+        self._rec_status.set(f" Recording ({n} / {config.SEQUENCE_LENGTH} frames)")
 
         display = cv2.resize(frame, (520, 400))
         rgb     = cv2.cvtColor(display, cv2.COLOR_BGR2RGB)
@@ -745,7 +745,7 @@ class TeachNewSignTab(ttk.Frame):
             self.after_cancel(self._after)
             self._after = None
 
-        # Do NOT release the camera here — keep it alive for the next recording.
+        # Do NOT release the camera here - keep it alive for the next recording.
         # The stream is only torn down by _stop_camera() (tab switch / app close).
 
         if success and len(self._frame_buf) >= 15:
@@ -754,7 +754,7 @@ class TeachNewSignTab(ttk.Frame):
                 n = len(self._recordings)
                 self._rec_cnt.set(f"{n} / {config.TEACH_NUM_RECORDINGS}")
                 self._rec_status.set(
-                    f"✅ Recording {n} saved."
+                    f" Recording {n} saved."
                     + (" Train when ready!" if n >= 5 else "")
                 )
                 if n >= 5:
@@ -769,7 +769,7 @@ class TeachNewSignTab(ttk.Frame):
                     n = len(self._recordings)
                     self._rec_cnt.set(f"{n} / {config.TEACH_NUM_RECORDINGS}")
                     self._rec_status.set(
-                        f"✅ Recording {n} saved."
+                        f" Recording {n} saved."
                         + (" Train when ready!" if n >= 5 else "")
                     )
                     if n >= 5:
@@ -841,7 +841,7 @@ class TeachNewSignTab(ttk.Frame):
         self._train_status.set(msg)
 
     def _on_done(self, label: str) -> None:
-        self._train_status.set(f"✅ '{label}' trained & hot-reloaded!")
+        self._train_status.set(f" '{label}' trained & hot-reloaded!")
         messagebox.showinfo("Training Complete",
                             f"'{label}' has been trained successfully.\n"
                             "Switch to Live Translator to test it!")
@@ -867,7 +867,7 @@ class TeachNewSignTab(ttk.Frame):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TAB 3 — Prediction History & Analytics
+# TAB 3 - Prediction History & Analytics
 # ─────────────────────────────────────────────────────────────────────────────
 
 class HistoryTab(ttk.Frame):
@@ -889,7 +889,7 @@ class HistoryTab(ttk.Frame):
         hdr = ttk.Frame(self, style="Dark.TFrame", padding=(12, 8))
         hdr.grid(row=0, column=0, sticky="ew")
         ttk.Label(hdr, text="📊  Prediction History & Analytics", style="H1.TLabel").pack(side="left")
-        ttk.Button(hdr, text="🔄  Refresh",
+        ttk.Button(hdr, text="  Refresh",
                    style="Accent.TButton", command=self.refresh).pack(side="right", padx=(0, 4))
         ttk.Button(hdr, text="🗑  Clear All",
                    style="Danger.TButton", command=self._clear).pack(side="right", padx=(0, 8))
@@ -994,8 +994,8 @@ class App(tk.Tk):
         self._teach   = TeachNewSignTab(nb, self._pred, self._db)
         self._history = HistoryTab(nb, self._db)
 
-        nb.add(self._live,    text="  📷  Real-Time Translator  ")
-        nb.add(self._teach,   text="  🎓  Teach Custom Sign  ")
+        nb.add(self._live,    text="    Real-Time Translator  ")
+        nb.add(self._teach,   text="    Teach Custom Sign  ")
         nb.add(self._history, text="  📊  History & Analytics  ")
 
         def _tab_change(event):

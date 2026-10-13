@@ -171,10 +171,14 @@ _AUTH_SCHEMA = [
 class UserManager:
     """Manages user authentication, activity tracking, and session management."""
 
+    _initialized = False
+
     def __init__(self, dsn: str | None = None) -> None:
         self.dsn = dsn or config.DATABASE_URL
-        self._init_schema()
-        self._seed_admin()
+        if not UserManager._initialized:
+            self._init_schema()
+            self._seed_admin()
+            UserManager._initialized = True
 
     # ── DB helpers ────────────────────────────────────────────────────────
 

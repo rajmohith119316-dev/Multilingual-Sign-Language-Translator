@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Login to SignLingo — Multilingual Sign Language Translator" />
-  <title>Login — SignLingo</title>
+  <meta name="description" content="Login to SignLingo - Multilingual Sign Language Translator" />
+  <title>Login - SignLingo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -23,9 +23,9 @@
       --accent: #00e5cc;
       --accent-dim: #00e5cc20;
       --accent-glow: #00e5cc40;
-      --purple: #7c3aed;
-      --purple-dim: #7c3aed20;
-      --purple-glow: #7c3aed50;
+      --purple: #38bdf8;
+      --purple-dim: #38bdf820;
+      --purple-glow: #38bdf850;
       --pink: #ec4899;
       --blue: #38bdf8;
       --green: #22c55e;
@@ -34,18 +34,18 @@
       --text-primary: #e8e8f0;
       --text-secondary: #8888b0;
       --text-muted: #5a5a80;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 20px;
-      --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.15);
+      --radius-sm: 4px;
+      --radius-md: 4px;
+      --radius-lg: 4px;
+      --radius-xl: 4px;
+      --shadow-glow: 0 0 30px rgba(56, 189, 248, 0.15);
       --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     /* Reset */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; height: 100%; }
+    html {  height: 100%; }
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: var(--bg-primary);
@@ -62,17 +62,7 @@
     ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
 
     /* Ambient background */
-    body::before {
-      content: '';
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background:
-        radial-gradient(ellipse 600px 400px at 10% 20%, rgba(124,58,237,0.08), transparent),
-        radial-gradient(ellipse 500px 350px at 90% 80%, rgba(0,229,204,0.06), transparent),
-        radial-gradient(ellipse 400px 300px at 50% 50%, rgba(236,72,153,0.04), transparent);
-      pointer-events: none;
-      z-index: 0;
-    }
+    body::before { display: none; }
 
     /* ═══════════════════════════════════════════════════════════
        Floating particles
@@ -85,7 +75,7 @@
       position: absolute;
       border-radius: 50%;
       opacity: 0.15;
-      animation: floatUp linear infinite;
+      
     }
     @keyframes floatUp {
       0%   { transform: translateY(100vh) scale(0); opacity: 0; }
@@ -103,7 +93,7 @@
       width: 100%;
       max-width: 460px;
       margin: 20px;
-      animation: fadeSlideUp 0.6s ease;
+      
     }
     @keyframes fadeSlideUp {
       from { opacity: 0; transform: translateY(30px); }
@@ -125,7 +115,7 @@
       height: 2px;
       background: linear-gradient(90deg, var(--accent), var(--purple), var(--pink), var(--accent));
       background-size: 300% 100%;
-      animation: gradientShift 4s ease infinite;
+      
     }
     @keyframes gradientShift {
       0%, 100% { background-position: 0% 50%; }
@@ -301,7 +291,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      animation: fadeSlideUp 0.3s ease;
+      
     }
     .alert-error {
       background: rgba(239,68,68,0.1);
@@ -341,7 +331,7 @@
       border: 2px solid transparent;
       border-top-color: currentColor;
       border-radius: 50%;
-      animation: spin 0.6s linear infinite;
+      
       vertical-align: middle;
       margin-right: 8px;
     }
@@ -425,7 +415,7 @@
               required
             />
             <button type="button" class="password-toggle" onclick="togglePassword('login-password', this)" aria-label="Toggle password visibility">
-              👁
+              
             </button>
           </div>
         </div>
@@ -475,10 +465,10 @@
       const inp = document.getElementById(inputId);
       if (inp.type === 'password') {
         inp.type = 'text';
-        btn.textContent = '🙈';
+        btn.textContent = '';
       } else {
         inp.type = 'password';
-        btn.textContent = '👁';
+        btn.textContent = '';
       }
     }
 

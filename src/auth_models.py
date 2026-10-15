@@ -14,8 +14,10 @@ Tables
 All passwords are stored as Werkzeug-hashed digests — NEVER plaintext.
 """
 
+import contextlib
 import logging
 import os
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -182,10 +184,33 @@ class UserManager:
 
     # ── DB helpers ────────────────────────────────────────────────────────
 
+    @contextlib.contextmanager
     def _connect(self):
-        conn = psycopg2.connect(self.dsn)
-        conn.autocommit = False
-        return conn
+        conn = None
+        dsn = self.dsn
+        last_exc = None
+        for attempt in range(3):
+            try:
+                conn = psycopg2.connect(dsn, connect_timeout=10)
+                conn.autocommit = False
+                break
+            except psycopg2.OperationalError as exc:
+                last_exc = exc
+                if "channel_binding" in str(dsn) and ("channel binding" in str(exc).lower() or attempt > 0):
+                    dsn = dsn.replace("&channel_binding=require", "").replace("channel_binding=require&", "").replace("channel_binding=require", "")
+                if attempt == 2:
+                    logger.error("DB connection failed after 3 attempts: %s", last_exc)
+                    raise last_exc
+                time.sleep(0.5)
+
+        try:
+            yield conn
+        finally:
+            if conn and not conn.closed:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
     def _init_schema(self):
         try:
@@ -202,32 +227,49 @@ class UserManager:
     # ── Admin Seed ────────────────────────────────────────────────────────
 
     def _seed_admin(self):
-        """Create the first admin from environment variables if not exists."""
-        admin_user = os.getenv("ADMIN_USERNAME")
-        admin_email = os.getenv("ADMIN_EMAIL")
+        """Create or sync the admin from environment variables."""
+        admin_user = (os.getenv("ADMIN_USERNAME") or "").strip()
+        admin_email = (os.getenv("ADMIN_EMAIL") or "").strip()
         admin_pass = os.getenv("ADMIN_PASSWORD")
 
         if not all([admin_user, admin_email, admin_pass]):
             logger.info("No ADMIN_USERNAME/ADMIN_EMAIL/ADMIN_PASSWORD env vars — skipping admin seed.")
             return
 
+        pw_hash = generate_password_hash(admin_pass)
         existing = self.get_user_by_username(admin_user)
+
         if existing:
-            logger.info("Admin user '%s' already exists — skipping seed.", admin_user)
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            UPDATE users
+                            SET password_hash = %s, email = %s, role = 'ADMIN', is_active = TRUE, updated_at = NOW()
+                            WHERE id = %s
+                        """, (pw_hash, admin_email.lower(), existing["id"]))
+                    conn.commit()
+                logger.info("Admin user '%s' synced with current environment variables.", admin_user)
+            except Exception as exc:
+                logger.error("Admin user sync failed: %s", exc)
             return
 
-        pw_hash = generate_password_hash(admin_pass)
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        INSERT INTO users (full_name, username, email, password_hash, role)
-                        VALUES (%s, %s, %s, %s, 'ADMIN')
-                        ON CONFLICT (username) DO NOTHING
-                    """, (admin_user, admin_user, admin_email, pw_hash))
+                        INSERT INTO users (full_name, username, email, password_hash, role, is_active)
+                        VALUES (%s, %s, %s, %s, 'ADMIN', TRUE)
+                        ON CONFLICT (username) DO UPDATE
+                        SET password_hash = EXCLUDED.password_hash,
+                            email = EXCLUDED.email,
+                            role = 'ADMIN',
+                            is_active = TRUE,
+                            updated_at = NOW()
+                    """, (admin_user, admin_user.lower(), admin_email.lower(), pw_hash))
                 conn.commit()
             logger.info("Admin user '%s' seeded from environment variables.", admin_user)
-        except psycopg2.Error as exc:
+        except Exception as exc:
             logger.error("Admin seed failed: %s", exc)
 
     # ── User CRUD ─────────────────────────────────────────────────────────
@@ -255,11 +297,14 @@ class UserManager:
             return None
 
     def get_user_by_username(self, username: str) -> dict | None:
+        clean_user = (username or "").strip().lower()
+        if not clean_user:
+            return None
         sql = "SELECT * FROM users WHERE username = %s"
         try:
             with self._connect() as conn:
                 with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (username.lower(),))
+                    cur.execute(sql, (clean_user,))
                     row = cur.fetchone()
             return dict(row) if row else None
         except psycopg2.Error as exc:
@@ -267,11 +312,14 @@ class UserManager:
             return None
 
     def get_user_by_email(self, email: str) -> dict | None:
+        clean_email = (email or "").strip().lower()
+        if not clean_email:
+            return None
         sql = "SELECT * FROM users WHERE email = %s"
         try:
             with self._connect() as conn:
                 with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (email.lower(),))
+                    cur.execute(sql, (clean_email,))
                     row = cur.fetchone()
             return dict(row) if row else None
         except psycopg2.Error as exc:
@@ -292,15 +340,23 @@ class UserManager:
 
     def authenticate(self, username_or_email: str, password: str) -> dict | None:
         """Validate credentials. Returns user dict on success, None on failure."""
-        user = self.get_user_by_username(username_or_email)
+        clean_identity = (username_or_email or "").strip()
+        if not clean_identity or not password:
+            return None
+
+        user = self.get_user_by_username(clean_identity)
         if not user:
-            user = self.get_user_by_email(username_or_email)
+            user = self.get_user_by_email(clean_identity)
         if not user:
+            logger.warning("Auth failed: user '%s' not found.", clean_identity)
             return None
         if not user.get("is_active", True):
+            logger.warning("Auth failed: user '%s' is inactive/disabled.", clean_identity)
             return None
         if check_password_hash(user["password_hash"], password):
             return user
+
+        logger.warning("Auth failed: incorrect password for user '%s'.", clean_identity)
         return None
 
     def update_last_login(self, user_id: int):
@@ -583,11 +639,14 @@ class UserManager:
         except psycopg2.Error as exc:
             logger.error("add_training_sample failed: %s", exc)
 
-    def get_submission_samples(self, submission_id: int) -> list[dict]:
-        sql = """
-            SELECT * FROM training_samples WHERE submission_id = %s
-            ORDER BY created_at
-        """
+    def get_submission_samples(self, submission_id: int, include_data: bool = False) -> list[dict]:
+        if include_data:
+            sql = "SELECT * FROM training_samples WHERE submission_id = %s ORDER BY created_at"
+        else:
+            sql = """
+                SELECT id, submission_id, sample_path, sample_type, frame_count, created_at, is_valid
+                FROM training_samples WHERE submission_id = %s ORDER BY created_at
+            """
         try:
             with self._connect() as conn:
                 with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -612,8 +671,15 @@ class UserManager:
 
     # ── Model Versions ────────────────────────────────────────────────────
 
-    def get_model_versions(self) -> list[dict]:
-        sql = "SELECT * FROM model_versions ORDER BY created_at DESC"
+    def get_model_versions(self, include_data: bool = False) -> list[dict]:
+        if include_data:
+            sql = "SELECT * FROM model_versions ORDER BY created_at DESC"
+        else:
+            sql = """
+                SELECT id, version_tag, model_type, model_path, accuracy,
+                       parameters, is_active, notes, created_at
+                FROM model_versions ORDER BY created_at DESC
+            """
         try:
             with self._connect() as conn:
                 with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:

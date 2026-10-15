@@ -113,7 +113,13 @@ def login_page():
         flash("Please enter your username/email and password.", "error")
         return render_template("login.html")
 
-    user = _mgr().authenticate(username, password)
+    try:
+        user = _mgr().authenticate(username, password)
+    except Exception as exc:
+        logger.error("Authentication DB error for '%s': %s", username, exc)
+        flash("Database connection error. Please try again in a few moments.", "error")
+        return render_template("login.html")
+
     if not user:
         # Intentionally vague to prevent enumeration
         flash("Invalid username/email or password.", "error")

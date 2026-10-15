@@ -3,7 +3,9 @@ src/database_manager.py — PostgreSQL Database Manager (MoE Edition)
 Three tables: gestures, prediction_history, translation_cache.
 """
 
+import contextlib
 import logging
+import time
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
@@ -59,10 +61,33 @@ class DatabaseManager:
 
     # ── Internals ─────────────────────────────────────────────────────────────
 
-    def _connect(self) -> psycopg2.extensions.connection:
-        conn = psycopg2.connect(self.dsn)
-        conn.autocommit = False
-        return conn
+    @contextlib.contextmanager
+    def _connect(self):
+        conn = None
+        dsn = self.dsn
+        last_exc = None
+        for attempt in range(3):
+            try:
+                conn = psycopg2.connect(dsn, connect_timeout=10)
+                conn.autocommit = False
+                break
+            except psycopg2.OperationalError as exc:
+                last_exc = exc
+                if "channel_binding" in str(dsn) and ("channel binding" in str(exc).lower() or attempt > 0):
+                    dsn = dsn.replace("&channel_binding=require", "").replace("channel_binding=require&", "").replace("channel_binding=require", "")
+                if attempt == 2:
+                    logger.error("Database connection failed after 3 attempts: %s", last_exc)
+                    raise last_exc
+                time.sleep(0.5)
+
+        try:
+            yield conn
+        finally:
+            if conn and not conn.closed:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
     def _init_schema(self) -> None:
         try:

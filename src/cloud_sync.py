@@ -123,7 +123,7 @@ def sync_active_models_from_db(predictor=None, force: bool = False) -> dict:
         result = {"synced": False, "updated": [], "active_tags": {}}
         try:
             mgr = UserManager()
-            versions = mgr.get_model_versions()
+            versions = mgr.get_model_versions(include_data=True)
         except Exception as exc:
             logger.error("Failed to connect or query model_versions from DB: %s", exc)
             return result
@@ -248,7 +248,7 @@ def run_cloud_retrain(job_id: int):
             label_dir = target_dir / label
             label_dir.mkdir(parents=True, exist_ok=True)
 
-            samples = mgr.get_submission_samples(sub["id"])
+            samples = mgr.get_submission_samples(sub["id"], include_data=True)
             for idx, s in enumerate(samples):
                 data = s.get("sample_data")
                 if data:

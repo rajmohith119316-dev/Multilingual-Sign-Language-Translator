@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,280 +8,675 @@
   <title>Admin Dashboard - SignLingo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
   <style>
     :root {
-      --bg-primary: #06060f; --bg-secondary: #0c0c1d; --bg-card: #12122a;
-      --bg-card-hover: #181840; --bg-elevated: #1a1a3e; --border: #252555;
-      --border-glow: #7c3aed40; --accent: #00e5cc; --accent-dim: #00e5cc20;
-      --accent-glow: #00e5cc40; --purple: #38bdf8; --purple-dim: #38bdf820;
-      --purple-glow: #38bdf850; --pink: #ec4899; --blue: #38bdf8;
-      --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
-      --text-primary: #e8e8f0; --text-secondary: #8888b0; --text-muted: #5a5a80;
-      --radius-sm: 4px; --radius-md: 4px; --radius-lg: 4px; --radius-xl: 4px;
+      --bg-primary: #06060f;
+      --bg-secondary: #0c0c1d;
+      --bg-card: #12122a;
+      --bg-card-hover: #181840;
+      --bg-elevated: #1a1a3e;
+      --border: #252555;
+      --border-glow: #7c3aed40;
+      --accent: #00e5cc;
+      --accent-dim: #00e5cc20;
+      --accent-glow: #00e5cc40;
+      --purple: #38bdf8;
+      --purple-dim: #38bdf820;
+      --purple-glow: #38bdf850;
+      --pink: #ec4899;
+      --blue: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --text-primary: #e8e8f0;
+      --text-secondary: #8888b0;
+      --text-muted: #5a5a80;
+      --radius-sm: 4px;
+      --radius-md: 4px;
+      --radius-lg: 4px;
+      --radius-xl: 4px;
       --shadow-glow: 0 0 30px rgba(56, 189, 248, 0.15);
       --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
       --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html {  }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {}
+
     body {
       font-family: 'Inter', system-ui, sans-serif;
-      background: var(--bg-primary); color: var(--text-primary);
-      min-height: 100vh; overflow-x: hidden; line-height: 1.6;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
     }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
-    ::-webkit-scrollbar-thumb { background: var(--purple); border-radius: 4px; }
-    body::before { display: none; }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--purple);
+      border-radius: 4px;
+    }
+
+    body::before {
+      display: none;
+    }
 
     /* Topbar */
     .topbar {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      background: rgba(6,6,15,0.88); backdrop-filter: blur(20px) saturate(1.4);
-      border-bottom: 1px solid var(--border); padding: 0 24px;
-      display: flex; align-items: center; height: 64px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(6, 6, 15, 0.88);
+      backdrop-filter: blur(20px) saturate(1.4);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      height: 64px;
     }
+
     .topbar-brand {
-      display: flex; align-items: center; gap: 10px;
-      font-weight: 700; font-size: 1.1rem; color: var(--accent);
-      text-decoration: none; letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--accent);
+      text-decoration: none;
+      letter-spacing: -0.5px;
     }
-    .topbar-brand svg { width: 28px; height: 28px; }
+
+    .topbar-brand svg {
+      width: 28px;
+      height: 28px;
+    }
+
     .admin-badge {
-      padding: 3px 10px; border-radius: 4px;
+      padding: 3px 10px;
+      border-radius: 4px;
       background: var(--blue);
-      color: white; font-size: 0.68rem; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 1px; margin-left: 8px;
+      color: white;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-left: 8px;
     }
-    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+
+    .topbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
     .topbar-link {
-      padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--radius-md);
-      background: var(--bg-elevated); color: var(--text-primary);
-      font-size: 0.8rem; font-weight: 600; text-decoration: none;
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
       transition: all var(--transition);
     }
-    .topbar-link:hover { border-color: var(--accent); background: var(--accent-dim); }
-    .btn-logout {
-      padding: 8px 18px; border: 1px solid var(--border); border-radius: var(--radius-md);
-      background: var(--bg-elevated); color: var(--text-primary);
-      font-family: inherit; font-size: 0.8rem; font-weight: 600;
-      cursor: pointer; transition: all var(--transition); text-decoration: none;
+
+    .topbar-link:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
     }
-    .btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+    .btn-logout {
+      padding: 8px 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      text-decoration: none;
+    }
+
+    .btn-logout:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
 
     /* Main */
     .page-wrap {
-      margin-top: 64px; padding: 28px 24px; max-width: 1400px;
-      margin-left: auto; margin-right: auto; position: relative; z-index: 1;
-      
+      margin-top: 64px;
+      padding: 28px 24px;
+      max-width: 1400px;
+      margin-left: auto;
+      margin-right: auto;
+      position: relative;
+      z-index: 1;
+
     }
-    
+
 
     .page-title {
-      font-size: 1.6rem; font-weight: 800; margin-bottom: 4px;
+      font-size: 1.6rem;
+      font-weight: 800;
+      margin-bottom: 4px;
       background: linear-gradient(135deg, var(--accent), var(--purple));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    .page-subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 24px; }
+
+    .page-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+    }
 
     /* Stat cards */
     .stats-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 14px; margin-bottom: 28px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
     }
+
     .stat-card {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); padding: 18px 16px;
-      text-align: center; transition: all var(--transition);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 16px;
+      text-align: center;
+      transition: all var(--transition);
     }
-    .stat-card:hover { border-color: var(--border-glow); box-shadow: var(--shadow-glow); }
-    .stat-value { font-size: 1.8rem; font-weight: 800; }
-    .stat-value.accent { color: var(--accent); }
-    .stat-value.purple { color: var(--purple); }
-    .stat-value.amber  { color: var(--amber); }
-    .stat-value.green  { color: var(--green); }
-    .stat-value.red    { color: var(--red); }
-    .stat-value.blue   { color: var(--blue); }
-    .stat-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+    .stat-card:hover {
+      border-color: var(--border-glow);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+    }
+
+    .stat-value.accent {
+      color: var(--accent);
+    }
+
+    .stat-value.purple {
+      color: var(--purple);
+    }
+
+    .stat-value.amber {
+      color: var(--amber);
+    }
+
+    .stat-value.green {
+      color: var(--green);
+    }
+
+    .stat-value.red {
+      color: var(--red);
+    }
+
+    .stat-value.blue {
+      color: var(--blue);
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
 
     /* Tabs */
     .admin-tabs {
-      display: flex; gap: 4px; background: var(--bg-card); border-radius: var(--radius-lg);
-      padding: 4px; border: 1px solid var(--border); margin-bottom: 24px;
+      display: flex;
+      gap: 4px;
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      padding: 4px;
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
       flex-wrap: wrap;
     }
+
     .admin-tab {
-      padding: 9px 20px; border-radius: var(--radius-md);
-      font-size: 0.82rem; font-weight: 500; color: var(--text-secondary);
-      cursor: pointer; transition: all var(--transition);
-      border: none; background: none; font-family: inherit;
+      padding: 9px 20px;
+      border-radius: var(--radius-md);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition);
+      border: none;
+      background: none;
+      font-family: inherit;
     }
-    .admin-tab:hover { color: var(--text-primary); background: var(--bg-elevated); }
+
+    .admin-tab:hover {
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+    }
+
     .admin-tab.active {
-      color: var(--bg-primary); background: var(--blue);
-      font-weight: 600; box-shadow: 0 2px 16px var(--purple-glow);
+      color: var(--bg-primary);
+      background: var(--blue);
+      font-weight: 600;
+      box-shadow: 0 2px 16px var(--purple-glow);
     }
 
     /* Panels */
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block;  }
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
 
     /* Card */
     .card {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 20px;
     }
+
     .card-title {
-      font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 1.2px; color: var(--text-muted); margin-bottom: 16px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
     }
 
     /* Table */
     .data-table {
-      width: 100%; border-collapse: collapse; font-size: 0.85rem;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
     }
+
     .data-table th {
-      text-align: left; padding: 10px 12px; font-size: 0.72rem;
-      text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted);
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
       border-bottom: 1px solid var(--border);
     }
+
     .data-table td {
-      padding: 12px; border-bottom: 1px solid rgba(37,37,85,0.3);
+      padding: 12px;
+      border-bottom: 1px solid rgba(37, 37, 85, 0.3);
       color: var(--text-secondary);
     }
-    .data-table tr:hover td { background: var(--bg-elevated); }
-    .data-table td.primary { color: var(--text-primary); font-weight: 600; }
+
+    .data-table tr:hover td {
+      background: var(--bg-elevated);
+    }
+
+    .data-table td.primary {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
 
     /* Badges */
     .badge {
-      display: inline-flex; padding: 3px 10px; border-radius: 16px;
-      font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;
+      display: inline-flex;
+      padding: 3px 10px;
+      border-radius: 16px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
     }
-    .badge-pending  { background: rgba(245,158,11,0.15); color: var(--amber); }
-    .badge-approved { background: rgba(34,197,94,0.15); color: var(--green); }
-    .badge-rejected { background: rgba(239,68,68,0.15); color: var(--red); }
-    .badge-admin    { background: rgba(56,189,248,0.15); color: var(--purple); }
-    .badge-user     { background: rgba(56,189,248,0.15); color: var(--blue); }
-    .badge-active   { background: rgba(34,197,94,0.15); color: var(--green); }
-    .badge-inactive { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    .badge-pending {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--amber);
+    }
+
+    .badge-approved {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .badge-rejected {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+    }
+
+    .badge-admin {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--purple);
+    }
+
+    .badge-user {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--blue);
+    }
+
+    .badge-active {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .badge-inactive {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+    }
 
     /* Action buttons */
     .btn-sm {
-      padding: 6px 14px; border: none; border-radius: var(--radius-sm);
-      font-family: inherit; font-size: 0.75rem; font-weight: 600;
-      cursor: pointer; transition: all var(--transition);
+      padding: 6px 14px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
     }
-    .btn-approve { background: rgba(34,197,94,0.15); color: var(--green); }
-    .btn-approve:hover { background: var(--green); color: white; }
-    .btn-reject { background: rgba(239,68,68,0.15); color: var(--red); }
-    .btn-reject:hover { background: var(--red); color: white; }
-    .btn-toggle { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
-    .btn-toggle:hover { border-color: var(--accent); }
 
-    .action-group { display: flex; gap: 6px; }
+    .btn-approve {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .btn-approve:hover {
+      background: var(--green);
+      color: white;
+    }
+
+    .btn-reject {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+    }
+
+    .btn-reject:hover {
+      background: var(--red);
+      color: white;
+    }
+
+    .btn-toggle {
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-toggle:hover {
+      border-color: var(--accent);
+    }
+
+    .action-group {
+      display: flex;
+      gap: 6px;
+    }
 
     /* Filters */
     .filter-bar {
-      display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
     }
-    .filter-input, .filter-select {
-      padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
-      background: var(--bg-secondary); color: var(--text-primary);
-      font-family: inherit; font-size: 0.82rem; outline: none;
+
+    .filter-input,
+    .filter-select {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.82rem;
+      outline: none;
       transition: border-color var(--transition);
     }
-    .filter-input:focus, .filter-select:focus { border-color: var(--accent); }
+
+    .filter-input:focus,
+    .filter-select:focus {
+      border-color: var(--accent);
+    }
+
     .filter-select {
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238888b0'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px;
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
     }
-    .filter-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+
+    .filter-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
 
     /* Activity feed (admin) */
     .activity-row {
-      display: grid; grid-template-columns: 100px 140px 1fr 1fr auto;
-      gap: 12px; align-items: center; padding: 10px 12px;
-      border-bottom: 1px solid rgba(37,37,85,0.3); font-size: 0.82rem;
+      display: grid;
+      grid-template-columns: 100px 140px 1fr 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(37, 37, 85, 0.3);
+      font-size: 0.82rem;
     }
-    .activity-row:hover { background: var(--bg-elevated); }
+
+    .activity-row:hover {
+      background: var(--bg-elevated);
+    }
+
     .activity-row .time {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
     }
-    .activity-row .user-name { font-weight: 600; color: var(--text-primary); }
-    .activity-row .type { color: var(--accent); font-weight: 600; }
-    .activity-row .page-info { color: var(--text-secondary); }
+
+    .activity-row .user-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .activity-row .type {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .activity-row .page-info {
+      color: var(--text-secondary);
+    }
 
     .empty-state {
-      text-align: center; padding: 40px; color: var(--text-muted); font-size: 0.9rem;
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
     }
 
     /* Modal */
     .modal-overlay {
-      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7); z-index: 200;
-      align-items: center; justify-content: center;
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
     }
-    .modal-overlay.open { display: flex; }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
     .modal {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius-xl); padding: 28px;
-      max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
-      
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+
     }
+
     .modal h3 {
-      font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
       background: linear-gradient(135deg, var(--accent), var(--purple));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
+
     .modal-close {
-      float: right; background: none; border: none; color: var(--text-muted);
-      font-size: 1.5rem; cursor: pointer; padding: 0 4px;
+      float: right;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0 4px;
     }
-    .modal-close:hover { color: var(--text-primary); }
-    .modal .form-group { margin-bottom: 16px; }
+
+    .modal-close:hover {
+      color: var(--text-primary);
+    }
+
+    .modal .form-group {
+      margin-bottom: 16px;
+    }
+
     .modal .form-label {
-      display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
-      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
+
     .modal .form-input {
-      width: 100%; padding: 10px 14px; border: 1px solid var(--border);
-      border-radius: var(--radius-md); background: var(--bg-secondary);
-      color: var(--text-primary); font-family: inherit; font-size: 0.88rem; outline: none;
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.88rem;
+      outline: none;
     }
-    .modal .form-input:focus { border-color: var(--accent); }
-    .modal textarea.form-input { resize: vertical; min-height: 80px; }
-    .modal .btn-row { display: flex; gap: 10px; margin-top: 20px; }
-    .modal .btn-row .btn-sm { padding: 10px 20px; font-size: 0.85rem; }
+
+    .modal .form-input:focus {
+      border-color: var(--accent);
+    }
+
+    .modal textarea.form-input {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .modal .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .modal .btn-row .btn-sm {
+      padding: 10px 20px;
+      font-size: 0.85rem;
+    }
 
     @media (max-width: 900px) {
-      .stats-grid { grid-template-columns: repeat(3, 1fr); }
-      .activity-row { grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.78rem; }
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .activity-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        font-size: 0.78rem;
+      }
     }
+
     @media (max-width: 600px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .admin-tabs { overflow-x: auto; flex-wrap: nowrap; }
-      .data-table { font-size: 0.78rem; }
-      .page-wrap { padding: 20px 14px; }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .admin-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+      }
+
+      .data-table {
+        font-size: 0.78rem;
+      }
+
+      .page-wrap {
+        padding: 20px 14px;
+      }
     }
   </style>
 </head>
+
 <body>
   <!-- Topbar -->
   <div class="topbar">
     <a href="/admin" class="topbar-brand">
       <svg viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="24" r="22" stroke="url(#g1)" stroke-width="2" opacity="0.3"/>
-        <path d="M16 32 C16 20, 24 14, 32 18 C28 16, 22 18, 20 26 L24 22 C26 18, 30 18, 30 22 L26 28 C28 24, 32 22, 32 26 C32 30, 28 34, 24 34 C20 34, 16 32, 16 32Z"
-              fill="url(#g2)" opacity="0.9"/>
+        <circle cx="24" cy="24" r="22" stroke="url(#g1)" stroke-width="2" opacity="0.3" />
+        <path
+          d="M16 32 C16 20, 24 14, 32 18 C28 16, 22 18, 20 26 L24 22 C26 18, 30 18, 30 22 L26 28 C28 24, 32 22, 32 26 C32 30, 28 34, 24 34 C20 34, 16 32, 16 32Z"
+          fill="url(#g2)" opacity="0.9" />
         <defs>
           <linearGradient id="g1" x1="0" y1="0" x2="48" y2="48">
-            <stop offset="0%" stop-color="#00e5cc"/><stop offset="100%" stop-color="#7c3aed"/>
+            <stop offset="0%" stop-color="#00e5cc" />
+            <stop offset="100%" stop-color="#7c3aed" />
           </linearGradient>
           <linearGradient id="g2" x1="14" y1="14" x2="34" y2="34">
-            <stop offset="0%" stop-color="#00e5cc"/><stop offset="50%" stop-color="#7c3aed"/>
-            <stop offset="100%" stop-color="#ec4899"/>
+            <stop offset="0%" stop-color="#00e5cc" />
+            <stop offset="50%" stop-color="#7c3aed" />
+            <stop offset="100%" stop-color="#ec4899" />
           </linearGradient>
         </defs>
       </svg>
@@ -339,24 +735,35 @@
         <div class="card-title">All Users</div>
         <table class="data-table">
           <thead>
-            <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th>Actions</th>
+            </tr>
           </thead>
           <tbody id="usersTableBody">
             {% for u in users %}
             <tr>
-              <td class="primary">{{ u.full_name }}<br><span style="font-size:0.72rem;color:var(--text-muted)">@{{ u.username }}</span></td>
+              <td class="primary">{{ u.full_name }}<br><span style="font-size:0.72rem;color:var(--text-muted)">@{{
+                  u.username }}</span></td>
               <td>{{ u.email }}</td>
               <td>
                 <form method="POST" action="/admin/update_role" style="display:inline;">
                   <input type="hidden" name="user_id" value="{{ u.id }}">
-                  <select name="role" class="filter-select" style="padding: 4px; font-size: 0.7rem; width: auto;" onchange="this.form.submit()">
-                    <option value="USER" {% if u.role == 'USER' %}selected{% endif %}>User</option>
-                    <option value="ADMIN" {% if u.role == 'ADMIN' %}selected{% endif %}>Admin</option>
+                  <select name="role" class="filter-select" style="padding: 4px; font-size: 0.7rem; width: auto;"
+                    onchange="this.form.submit()">
+                    <option value="USER" {% if u.role=='USER' %}selected{% endif %}>User</option>
+                    <option value="ADMIN" {% if u.role=='ADMIN' %}selected{% endif %}>Admin</option>
                   </select>
                 </form>
               </td>
-              <td><span class="badge badge-{{ 'active' if u.is_active else 'inactive' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span></td>
-              <td style="font-size:0.78rem;">{{ u.last_login.strftime('%d-%m-%Y %H:%M') if u.last_login else 'Never' }}</td>
+              <td><span class="badge badge-{{ 'active' if u.is_active else 'inactive' }}">{{ 'Active' if u.is_active
+                  else 'Disabled' }}</span></td>
+              <td style="font-size:0.78rem;">{{ u.last_login.strftime('%d-%m-%Y %H:%M') if u.last_login else 'Never' }}
+              </td>
               <td>
                 <div class="action-group">
                   <form method="POST" action="/admin/toggle_user" style="display:inline;">
@@ -366,7 +773,8 @@
                       {{ 'Disable' if u.is_active else 'Enable' }}
                     </button>
                   </form>
-                  <form method="POST" action="/admin/delete_user" style="display:inline;" onsubmit="return confirm('Are you sure you want to permanently delete this user?');">
+                  <form method="POST" action="/admin/delete_user" style="display:inline;"
+                    onsubmit="return confirm('Are you sure you want to permanently delete this user?');">
                     <input type="hidden" name="user_id" value="{{ u.id }}">
                     <button type="submit" class="btn-sm btn-reject">Delete</button>
                   </form>
@@ -394,7 +802,16 @@
         <div class="card-title">Training Submissions</div>
         <table class="data-table" id="submissionsTable">
           <thead>
-            <tr><th>ID</th><th>User</th><th>Gesture</th><th>Type</th><th>Samples</th><th>Status</th><th>Submitted</th><th>Actions</th></tr>
+            <tr>
+              <th>ID</th>
+              <th>User</th>
+              <th>Gesture</th>
+              <th>Type</th>
+              <th>Samples</th>
+              <th>Status</th>
+              <th>Submitted</th>
+              <th>Actions</th>
+            </tr>
           </thead>
           <tbody id="submissionsTableBody">
             {% for s in submissions %}
@@ -405,27 +822,31 @@
               <td>{{ s.gesture_type }}</td>
               <td>{{ s.sample_count }}</td>
               <td><span class="badge badge-{{ s.status | lower }}">{{ s.status }}</span></td>
-              <td style="font-size:0.78rem;">{{ s.submitted_at.strftime('%d-%m-%Y %H:%M') if s.submitted_at else '' }}</td>
+              <td style="font-size:0.78rem;">{{ s.submitted_at.strftime('%d-%m-%Y %H:%M') if s.submitted_at else '' }}
+              </td>
               <td>
                 {% if s.status == 'PENDING' %}
                 <div class="action-group">
-                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
+                  <button type="button" class="btn-sm btn-toggle"
+                    onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
                   <form method="POST" action="/admin/review_submission" style="display:inline;">
                     <input type="hidden" name="submission_id" value="{{ s.id }}">
                     <input type="hidden" name="status" value="APPROVED">
                     <button type="submit" class="btn-sm btn-approve">✓ Approve</button>
                   </form>
                   <button type="button" class="btn-sm btn-reject"
-                          onclick="openRejectModal({{ s.id }}, '{{ s.gesture_label }}')">✗ Reject</button>
+                    onclick="openRejectModal({{ s.id }}, '{{ s.gesture_label }}')">✗ Reject</button>
                 </div>
                 {% elif s.status == 'REJECTED' and s.rejection_reason %}
                 <div class="action-group">
-                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
+                  <button type="button" class="btn-sm btn-toggle"
+                    onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
                   <span style="font-size:0.75rem;color:var(--red);font-style:italic;">{{ s.rejection_reason }}</span>
                 </div>
                 {% else %}
                 <div class="action-group">
-                  <button type="button" class="btn-sm btn-toggle" onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
+                  <button type="button" class="btn-sm btn-toggle"
+                    onclick="viewSamples({{ s.id }}, '{{ s.gesture_label }}')"> View</button>
                   <span style="font-size:0.75rem;color:var(--text-muted);">-</span>
                 </div>
                 {% endif %}
@@ -489,14 +910,23 @@
         <div class="card-title">Model Versions</div>
         {% if model_versions %}
         <table class="data-table">
-          <thead><tr><th>Version</th><th>Type</th><th>Accuracy</th><th>Status</th><th>Created</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Version</th>
+              <th>Type</th>
+              <th>Accuracy</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
           <tbody>
             {% for m in model_versions %}
             <tr>
               <td class="primary">{{ m.version_tag }}</td>
               <td>{{ m.model_type }}</td>
               <td>{{ '%.2f%%' | format(m.accuracy * 100) if m.accuracy else 'N/A' }}</td>
-              <td><span class="badge badge-{{ 'active' if m.is_active else 'inactive' }}">{{ 'Active' if m.is_active else 'Archived' }}</span></td>
+              <td><span class="badge badge-{{ 'active' if m.is_active else 'inactive' }}">{{ 'Active' if m.is_active
+                  else 'Archived' }}</span></td>
               <td style="font-size:0.78rem;">{{ m.created_at.strftime('%d-%m-%Y') if m.created_at else '' }}</td>
             </tr>
             {% endfor %}
@@ -508,25 +938,38 @@
       </div>
 
       <div class="card">
-        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div class="card-title"
+          style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <span>Training Jobs</span>
           <form method="POST" action="/admin/trigger_retrain" style="margin: 0;">
-            <input type="hidden" name="job_type" value="Word Model Retraining">
+            <input type="hidden" name="job_type" value="Model Retraining">
             <button type="submit" class="btn-sm btn-approve" style="padding: 8px 16px;"> Trigger Retrain</button>
           </form>
         </div>
         {% if training_jobs %}
         <table class="data-table">
-          <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Version</th><th>Started</th><th>Completed</th></tr></thead>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Version</th>
+              <th>Started</th>
+              <th>Completed</th>
+            </tr>
+          </thead>
           <tbody>
             {% for j in training_jobs %}
             <tr>
               <td>#{{ j.id }}</td>
               <td>{{ j.job_type }}</td>
-              <td><span class="badge badge-{{ 'approved' if j.status == 'COMPLETED' else 'pending' if j.status == 'RUNNING' else 'rejected' if j.status == 'FAILED' else 'user' }}">{{ j.status }}</span></td>
+              <td><span
+                  class="badge badge-{{ 'approved' if j.status == 'COMPLETED' else 'pending' if j.status == 'RUNNING' else 'rejected' if j.status == 'FAILED' else 'user' }}">{{
+                  j.status }}</span></td>
               <td>{{ j.version_tag or '-' }}</td>
               <td style="font-size:0.78rem;">{{ j.started_at.strftime('%d-%m-%Y %H:%M') if j.started_at else '-' }}</td>
-              <td style="font-size:0.78rem;">{{ j.completed_at.strftime('%d-%m-%Y %H:%M') if j.completed_at else '-' }}</td>
+              <td style="font-size:0.78rem;">{{ j.completed_at.strftime('%d-%m-%Y %H:%M') if j.completed_at else '-' }}
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -553,7 +996,7 @@
         <div class="form-group">
           <label class="form-label" for="rejectReason">Rejection Reason</label>
           <textarea class="form-input" id="rejectReason" name="rejection_reason"
-                    placeholder="Explain why this submission is being rejected…" required></textarea>
+            placeholder="Explain why this submission is being rejected…" required></textarea>
         </div>
         <div class="btn-row">
           <button type="submit" class="btn-sm btn-reject" style="padding:10px 24px;">Reject Submission</button>
@@ -566,16 +1009,22 @@
   <div class="modal-overlay" id="samplesModal">
     <div class="modal" style="max-width: 840px; width: 95%;">
       <button class="modal-close" onclick="closeSamplesModal()">&times;</button>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-right: 28px; flex-wrap: wrap; gap: 10px;">
+      <div
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-right: 28px; flex-wrap: wrap; gap: 10px;">
         <div>
           <h3 style="margin: 0;">Samples: <span id="samplesGestureName" style="color:var(--accent)"></span></h3>
-          <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: var(--text-muted);">Visual hand pose photo & video sequence samples</p>
+          <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: var(--text-muted);">Visual hand pose photo & video
+            sequence samples</p>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <span id="samplesCountBadge" class="badge badge-pending" style="font-size: 0.75rem;"></span>
           <div style="display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;">
-            <button type="button" id="btn-samples-gallery" onclick="setSamplesView('gallery')" style="padding: 4px 10px; font-size: 0.75rem; background: var(--accent); color: #000; border: none; cursor: pointer; font-weight: 600;">🖼️ Gallery</button>
-            <button type="button" id="btn-samples-table" onclick="setSamplesView('table')" style="padding: 4px 10px; font-size: 0.75rem; background: var(--bg-card); color: var(--text-secondary); border: none; cursor: pointer;">📋 Table</button>
+            <button type="button" id="btn-samples-gallery" onclick="setSamplesView('gallery')"
+              style="padding: 4px 10px; font-size: 0.75rem; background: var(--accent); color: #000; border: none; cursor: pointer; font-weight: 600;">🖼️
+              Gallery</button>
+            <button type="button" id="btn-samples-table" onclick="setSamplesView('table')"
+              style="padding: 4px 10px; font-size: 0.75rem; background: var(--bg-card); color: var(--text-secondary); border: none; cursor: pointer;">📋
+              Table</button>
           </div>
         </div>
       </div>
@@ -593,7 +1042,7 @@
     function paginateContainer(containerId, itemSelector, rowsPerPage) {
       const container = document.getElementById(containerId);
       if (!container) return;
-      
+
       let items = Array.from(container.querySelectorAll(itemSelector));
       if (items.length === 0) return;
 
@@ -606,41 +1055,41 @@
       controls.style.padding = '0 10px';
       controls.style.fontSize = '0.8rem';
       controls.style.color = 'var(--text-muted)';
-      
+
       const info = document.createElement('span');
       const btnGroup = document.createElement('div');
       btnGroup.style.display = 'flex';
       btnGroup.style.gap = '8px';
-      
+
       const prevBtn = document.createElement('button');
       prevBtn.innerText = 'Prev';
       prevBtn.className = 'btn-sm btn-toggle';
-      
+
       const nextBtn = document.createElement('button');
       nextBtn.innerText = 'Next';
       nextBtn.className = 'btn-sm btn-toggle';
-      
+
       btnGroup.appendChild(prevBtn);
       btnGroup.appendChild(nextBtn);
       controls.appendChild(info);
       controls.appendChild(btnGroup);
-      
+
       container.parentNode.parentNode.insertBefore(controls, container.parentNode.nextSibling);
 
       let currentPage = 1;
 
       function renderPage(page) {
-        items = Array.from(container.querySelectorAll(itemSelector)); 
+        items = Array.from(container.querySelectorAll(itemSelector));
         const visibleItems = items.filter(item => item.getAttribute('data-filtered-out') !== 'true');
         const totalPages = Math.ceil(visibleItems.length / rowsPerPage) || 1;
-        
+
         if (page > totalPages) page = totalPages;
         if (page < 1) page = 1;
         currentPage = page;
-        
+
         const start = (currentPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
-        
+
         items.forEach(item => {
           if (item.getAttribute('data-filtered-out') === 'true') {
             item.style.display = 'none';
@@ -654,9 +1103,9 @@
             item.style.display = 'none';
           }
         });
-        
+
         info.innerText = `Showing ${visibleItems.length === 0 ? 0 : start + 1} to ${Math.min(end, visibleItems.length)} of ${visibleItems.length}`;
-        
+
         prevBtn.style.opacity = currentPage === 1 ? '0.5' : '1';
         nextBtn.style.opacity = currentPage === totalPages ? '0.5' : '1';
       }
@@ -725,7 +1174,7 @@
         const oldControls = feed.parentNode.parentNode.querySelector('.pagination-controls');
         if (oldControls) oldControls.remove();
         paginateContainer('activityFeed', '.activity-row', 15);
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     // ── Reject Modal ────────────────────────────────────────────
@@ -738,7 +1187,7 @@
     function closeRejectModal() {
       document.getElementById('rejectModal').classList.remove('open');
     }
-    document.getElementById('rejectModal').addEventListener('click', function(e) {
+    document.getElementById('rejectModal').addEventListener('click', function (e) {
       if (e.target === this) closeRejectModal();
     });
 
@@ -852,7 +1301,7 @@
     function closeSamplesModal() {
       document.getElementById('samplesModal').classList.remove('open');
     }
-    document.getElementById('samplesModal').addEventListener('click', function(e) {
+    document.getElementById('samplesModal').addEventListener('click', function (e) {
       if (e.target === this) closeSamplesModal();
     });
 
@@ -861,7 +1310,8 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activity_type: 'PAGE_VIEW', page: '/admin', action: 'OPEN' })
-    }).catch(() => {});
+    }).catch(() => { });
   </script>
 </body>
+
 </html>

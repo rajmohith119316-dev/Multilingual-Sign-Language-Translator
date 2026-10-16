@@ -158,7 +158,7 @@ def train_alphabet_expert(
 def _build_word_model(num_classes: int):
     """
     Conv1D(64, k=3, relu) → MaxPool(2) → GRU(64)
-    → Dense(128, relu) → Dropout(0.5) → Dense(N, softmax)
+    → Dense(128, relu) → Dropout(0.25) → Dense(N, softmax)
     Input: (30, 123)
     """
     import tensorflow as tf
@@ -171,7 +171,7 @@ def _build_word_model(num_classes: int):
         keras.layers.MaxPooling1D(pool_size=2, name="maxpool_1"),
         keras.layers.GRU(64, return_sequences=False, name="gru_1"),
         keras.layers.Dense(128, activation="relu",  name="dense_1"),
-        keras.layers.Dropout(0.5,                   name="dropout_1"),
+        keras.layers.Dropout(0.25,                  name="dropout_1"),
         keras.layers.Dense(num_classes, activation="softmax", name="output"),
     ], name="word_expert")
     return model
@@ -199,32 +199,49 @@ def train_word_expert(
     n_cls  = len(le.classes_)
     y_hot  = keras.utils.to_categorical(y_enc, n_cls)
 
-    X_tr, X_v, y_tr, y_v = train_test_split(
-        X, y_hot, test_size=config.VALIDATION_SPLIT,
-        random_state=42, stratify=y_enc,
-    )
+    min_samples_for_val = 10 * n_cls
+    can_split = len(X) >= min_samples_for_val and (len(X) * config.VALIDATION_SPLIT) >= (2 * n_cls)
+
+    if can_split:
+        X_tr, X_v, y_tr, y_v = train_test_split(
+            X, y_hot, test_size=config.VALIDATION_SPLIT,
+            random_state=42, stratify=y_enc,
+        )
+        cbs = [
+            keras.callbacks.EarlyStopping(monitor="val_loss", patience=12,
+                                           restore_best_weights=True),
+            keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5,
+                                               patience=5, min_lr=1e-5),
+            keras.callbacks.ModelCheckpoint(str(model_path), monitor="val_loss",
+                                             save_best_only=True),
+        ]
+    else:
+        # Small dataset: train on all data with loss-based convergence
+        X_tr, y_tr = X, y_hot
+        X_v, y_v = X, y_hot
+        cbs = [
+            keras.callbacks.EarlyStopping(monitor="loss", patience=15,
+                                           restore_best_weights=True),
+            keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.5,
+                                               patience=6, min_lr=1e-5),
+            keras.callbacks.ModelCheckpoint(str(model_path), monitor="loss",
+                                             save_best_only=True),
+        ]
+
     logger.info("Classes(%d): %s", n_cls, list(le.classes_))
     logger.info("Train: %d  Val: %d", len(X_tr), len(X_v))
 
+    batch_sz = min(16, max(4, len(X_tr)))
     model = _build_word_model(n_cls)
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=config.LEARNING_RATE),
+        optimizer=keras.optimizers.Adam(learning_rate=0.002),
         loss="categorical_crossentropy",
         metrics=["accuracy"],
     )
     model.summary(print_fn=logger.info)
 
-    cbs = [
-        keras.callbacks.EarlyStopping(monitor="val_accuracy", patience=8,
-                                       restore_best_weights=True),
-        keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5,
-                                           patience=4, min_lr=1e-6),
-        keras.callbacks.ModelCheckpoint(str(model_path), monitor="val_accuracy",
-                                         save_best_only=True),
-    ]
-
     model.fit(X_tr, y_tr, validation_data=(X_v, y_v),
-              epochs=config.WORD_EPOCHS, batch_size=config.BATCH_SIZE,
+              epochs=config.WORD_EPOCHS, batch_size=batch_sz,
               callbacks=cbs, verbose=1)
 
     model.save(str(model_path))

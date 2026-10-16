@@ -415,11 +415,16 @@ class GesturePredictor:
             return None, 0.0
 
     def _eval_word(self) -> tuple[Optional[str], float]:
-        """Evaluate Word Expert on current 30-frame sequence buffer. Returns (label, confidence)."""
-        if not self.is_word_ready or len(self._word_buffer) < self._seq_len:
+        """Evaluate Word Expert on sequence buffer. Accepts buffers >= 15 frames. Returns (label, confidence)."""
+        if not self.is_word_ready or len(self._word_buffer) < 15:
             return None, 0.0
         try:
-            sequence = np.array(self._word_buffer, dtype=np.float32)  # (30, 123)
+            from src.utils import pad_or_sample_sequence
+            buf_list = list(self._word_buffer)
+            if len(buf_list) < self._seq_len:
+                sequence = pad_or_sample_sequence(buf_list, self._seq_len, self._word_feat)
+            else:
+                sequence = np.array(buf_list[-self._seq_len:], dtype=np.float32)
             inp = sequence[np.newaxis, ...]
             if self._word_predict_fn is not None:
                 probs = self._word_predict_fn(inp).numpy()[0]
@@ -489,54 +494,63 @@ class GesturePredictor:
 
             self._idle_frames = 0
 
-            # Determine routing mode based on mode preference and hand count
-            if self._mode_preference == "ALPHABET":
+            # Always accumulate dual-hand features when hands are present
+            feat_123 = extract_dual_hand_features(left_lm, right_lm)
+            self._word_buffer.append(feat_123)
+
+            # Determine routing mode preference
+            pref = self._mode_preference
+            if pref == "ALPHABET":
                 target_mode = MODE_ALPHABET
-            elif self._mode_preference == "WORD":
+            elif pref == "WORD":
                 target_mode = MODE_WORD
             else:
                 # AUTO Mode:
-                # 1 hand  -> ALPHABET (Letters: A-Z, custom)
-                # 2 hands -> WORD     (Dual-hand dynamic words)
-                target_mode = MODE_ALPHABET if n_hands == 1 else MODE_WORD
+                # 2 hands -> strictly WORD
+                # 1 hand  -> ALPHABET default, with fallback to WORD if dynamic sign detected
+                target_mode = MODE_WORD if n_hands >= 2 else MODE_ALPHABET
 
-            # ── Alphabet Mode (Single Hand) ───────────────────────────────────
-            if target_mode == MODE_ALPHABET:
-                self._current_mode = MODE_ALPHABET
-                self._word_stable  = 0
-                # Do NOT accumulate word buffer while in alphabet mode
-                self._word_buffer.clear()
-                self._last_word_eval = (None, 0.0)
+            # ── Forced Word Mode or Dual-Hand Detected ─────────────────────────
+            if target_mode == MODE_WORD:
+                self._current_mode = MODE_WORD
+                self._alpha_stable = 0
 
-                active_lm = left_lm if left_lm is not None else right_lm
-                feat_60 = extract_single_hand_features(active_lm)
+                if len(self._word_buffer) < 15:
+                    return None, left_lm, right_lm, n_hands
 
-                alpha_label, alpha_conf = self._eval_alphabet(feat_60)
-                if alpha_label is not None and alpha_conf >= self._conf_thresh:
-                    res = self._filter_alphabet(alpha_label, alpha_conf)
+                self._word_eval_counter += 1
+                if self._word_eval_counter % 2 == 0 or self._last_word_eval[0] is None:
+                    self._last_word_eval = self._eval_word()
+                word_label, word_conf = self._last_word_eval
+
+                if word_label is not None and word_conf >= self._conf_thresh:
+                    res = self._filter_word(word_label, word_conf)
                     return res, left_lm, right_lm, n_hands
 
                 return None, left_lm, right_lm, n_hands
 
-            # ── Word Mode (Dual Hands / Words) ────────────────────────────────
-            self._current_mode = MODE_WORD
-            self._alpha_stable = 0
+            # ── Alphabet Mode (or AUTO with 1 hand) ────────────────────────────
+            self._current_mode = MODE_ALPHABET
+            self._word_stable = 0
 
-            feat_123 = extract_dual_hand_features(left_lm, right_lm)
-            self._word_buffer.append(feat_123)
+            active_lm = left_lm if left_lm is not None else right_lm
+            feat_60 = extract_single_hand_features(active_lm)
+            alpha_label, alpha_conf = self._eval_alphabet(feat_60)
 
-            if len(self._word_buffer) < self._seq_len:
-                return None, left_lm, right_lm, n_hands  # Still filling buffer (1/30 ... 29/30)
+            # In AUTO mode with sufficient word buffer, also check if dynamic word is being signed
+            if pref == "AUTO" and self.is_word_ready and len(self._word_buffer) >= 15:
+                self._word_eval_counter += 1
+                if self._word_eval_counter % 2 == 0 or self._last_word_eval[0] is None:
+                    self._last_word_eval = self._eval_word()
+                word_label, word_conf = self._last_word_eval
 
-            # Buffer complete: evaluate Word Expert.
-            # Throttle GRU model execution to every 2 frames once full to prevent CPU lag
-            self._word_eval_counter += 1
-            if self._word_eval_counter % 2 == 0 or self._last_word_eval[0] is None:
-                self._last_word_eval = self._eval_word()
-            word_label, word_conf = self._last_word_eval
+                if word_label is not None and word_conf >= 0.75 and (alpha_conf < 0.70 or word_conf > alpha_conf + 0.05):
+                    self._current_mode = MODE_WORD
+                    res = self._filter_word(word_label, word_conf)
+                    return res, left_lm, right_lm, n_hands
 
-            if word_label is not None and word_conf >= self._conf_thresh:
-                res = self._filter_word(word_label, word_conf)
+            if alpha_label is not None and alpha_conf >= self._conf_thresh:
+                res = self._filter_alphabet(alpha_label, alpha_conf)
                 return res, left_lm, right_lm, n_hands
 
             return None, left_lm, right_lm, n_hands

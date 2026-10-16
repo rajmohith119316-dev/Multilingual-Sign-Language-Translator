@@ -44,7 +44,7 @@ import config
 from src.database_manager import DatabaseManager
 from src.predict import GesturePredictor, MODE_IDLE, MODE_ALPHABET, MODE_WORD
 from src.retrain_dynamic import train_new_gesture
-from src.translator import AudioTranslator
+from src.translator import AudioTranslator, _code_to_name
 from src.utils import (
     draw_hand_landmarks,
     draw_router_badge,
@@ -363,6 +363,7 @@ def api_process_frame():
             prediction_state["label"] = label
             prediction_state["confidence"] = round(conf, 4)
             prediction_state["translation"] = tx
+            prediction_state["target_language"] = _code_to_name(translator.target_language)
 
     with pred_lock:
         prediction_state["mode"] = mode
@@ -530,7 +531,17 @@ def api_set_language():
     data = request.get_json(silent=True) or {}
     lang_name = data.get("language", "English")
     code = config.SUPPORTED_LANGUAGES.get(lang_name, "en")
-    translator.target_language = code
+    if translator is not None:
+        translator.target_language = code
+    with pred_lock:
+        prediction_state["target_language"] = lang_name
+        current_lbl = prediction_state.get("label")
+        if current_lbl and current_lbl not in ("—", "-"):
+            if translator is not None:
+                new_tx = translator.translate(current_lbl)
+                prediction_state["translation"] = new_tx
+                if translator._tts_on:
+                    translator.speak(new_tx)
     return jsonify({"ok": True, "language": lang_name, "code": code})
 
 
@@ -539,7 +550,8 @@ def api_set_tts():
     """Toggle TTS on/off."""
     data = request.get_json(silent=True) or {}
     enabled = data.get("enabled", True)
-    translator.set_tts_enabled(enabled)
+    if translator is not None:
+        translator.set_tts_enabled(enabled)
     return jsonify({"ok": True, "tts_enabled": enabled})
 
 

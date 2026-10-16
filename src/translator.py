@@ -17,6 +17,68 @@ from src.database_manager import DatabaseManager
 logger = logging.getLogger(__name__)
 
 
+import json
+import urllib.parse
+import urllib.request
+
+MYMEMORY_LANG_MAP = {
+    "en": "english",
+    "kn": "kannada",
+    "hi": "hindi",
+    "ta": "tamil",
+    "te": "telugu",
+    "ml": "malayalam",
+    "fr": "french",
+    "de": "german",
+    "es": "spanish",
+}
+
+
+def _online_translate(text: str, target_lang: str) -> str:
+    """Multi-tier translation engine fallback."""
+    if not text or target_lang == "en":
+        return text
+
+    # Tier 1: Google Translate GTX endpoint (fast 80-150ms, highly reliable, no web scraper blocks)
+    try:
+        q = urllib.parse.quote(text)
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl={target_lang}&dt=t&q={q}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+        )
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            res = "".join(chunk[0] for chunk in data[0] if chunk[0])
+            if res:
+                return res
+    except Exception as exc:
+        logger.debug("Google GTX translation failed: %s", exc)
+
+    # Tier 2: MyMemoryTranslator with mapped language name
+    try:
+        from deep_translator import MyMemoryTranslator
+        lang_name = MYMEMORY_LANG_MAP.get(target_lang, target_lang)
+        res = MyMemoryTranslator(source="english", target=lang_name).translate(text)
+        if res:
+            return res
+    except Exception as exc:
+        logger.debug("MyMemoryTranslator failed: %s", exc)
+
+    # Tier 3: deep_translator GoogleTranslator
+    try:
+        from deep_translator import GoogleTranslator
+        res = GoogleTranslator(source="en", target=target_lang).translate(text)
+        if res:
+            return res
+    except Exception as exc:
+        logger.debug("deep_translator GoogleTranslator failed: %s", exc)
+
+    return text
+
+
 class AudioTranslator:
     """
     Thread-safe multilingual translation and TTS.
@@ -24,10 +86,11 @@ class AudioTranslator:
     Translation strategy
     ─────────────────────
     1. Return as-is for English.
-    2. SQLite cache lookup (0ms).
-    3. Google Translate via deep-translator (network).
-    4. Cache the result.
-    5. Graceful fallback to English on network failure.
+    2. Built-in vocabulary & alphabet dictionary (0ms latency, 100% offline).
+    3. Database cache lookup (0ms latency).
+    4. Multi-engine online translator (GTX -> MyMemory -> deep_translator).
+    5. Automatic database and memory caching.
+    6. Graceful fallback on network failure.
 
     TTS strategy
     ─────────────
@@ -53,6 +116,17 @@ class AudioTranslator:
         self._pending_translations = set()
         self._last_logged_label = ""
         self._last_logged_lang = ""
+
+        # Load built-in instant translation dictionary
+        self._builtin_dict: dict[str, str] = {}
+        try:
+            dict_file = Path(__file__).resolve().parent / "builtin_translations.json"
+            if dict_file.exists():
+                with open(dict_file, "r", encoding="utf-8") as f:
+                    self._builtin_dict = json.load(f)
+                logger.info("Loaded %d pre-cached translations into memory.", len(self._builtin_dict))
+        except Exception as exc:
+            logger.warning("Could not load builtin_translations.json: %s", exc)
 
         self._tts_lock   = threading.Lock()
         self._tts_queue: list[str] = []
@@ -80,44 +154,51 @@ class AudioTranslator:
     # ── Translation ────────────────────────────────────────────────────────────
 
     def translate(self, english_text: str) -> str:
-        if not english_text:
+        if not english_text or english_text in ("—", "-"):
             return english_text
         if self._lang == "en":
             return english_text
 
-        # Cache hit (0ms)
-        cached = self._db.get_cached_translation(english_text, self._lang)
-        if cached:
-            return cached
+        text_clean = english_text.strip().upper()
 
+        # 1. Built-in instant dictionary lookup (0ms)
+        builtin_key = f"{text_clean}_{self._lang}"
+        if builtin_key in self._builtin_dict:
+            return self._builtin_dict[builtin_key]
+
+        # 2. Database cache hit (0ms)
+        try:
+            cached = self._db.get_cached_translation(english_text, self._lang)
+            if cached:
+                # Also store in local memory dict for instant next hit
+                self._builtin_dict[builtin_key] = cached
+                return cached
+        except Exception as db_exc:
+            logger.debug("Database cache lookup error: %s", db_exc)
+
+        # 3. If already resolving in background, return current english text immediately
         if (english_text, self._lang) in self._pending_translations:
             return english_text
 
         self._pending_translations.add((english_text, self._lang))
 
-        # Async background translation to avoid UI freezing
+        # 4. Async background translation to avoid UI freezing
         target_lang = self._lang
         def _bg_translate():
             try:
-                from deep_translator import GoogleTranslator, MyMemoryTranslator
-                try:
-                    res = GoogleTranslator(source="en", target=target_lang).translate(english_text)
-                except Exception as g_exc:
-                    logger.warning("GoogleTranslator failed: %s. Trying MyMemoryTranslator...", g_exc)
-                    res = MyMemoryTranslator(source="en", target=target_lang).translate(english_text)
-                
-                if res:
-                    self._db.cache_translation(english_text, target_lang, res)
+                res = _online_translate(english_text, target_lang)
+                if res and res != english_text:
+                    try:
+                        self._db.cache_translation(english_text, target_lang, res)
+                    except Exception:
+                        pass
+                    self._builtin_dict[f"{text_clean}_{target_lang}"] = res
                     if self._tts_on:
                         self.speak(res)
-                    self._pending_translations.discard((english_text, target_lang))
             except Exception as exc:        # noqa: BLE001
-                logger.warning("Async translation failed for '%s': %s", english_text, exc)
-                # Keep it in pending for a few seconds to avoid hammering the API
-                def _remove_later():
-                    time.sleep(5.0)
-                    self._pending_translations.discard((english_text, target_lang))
-                threading.Thread(target=_remove_later, daemon=True).start()
+                logger.warning("Async translation failed for '%s' to '%s': %s", english_text, target_lang, exc)
+            finally:
+                self._pending_translations.discard((english_text, target_lang))
 
         threading.Thread(target=_bg_translate, daemon=True, name="AsyncTranslator").start()
         return english_text   # immediate non-blocking response

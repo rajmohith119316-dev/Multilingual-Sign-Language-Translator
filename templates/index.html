@@ -106,26 +106,27 @@
     }
     .nav-tab:hover { color: var(--text-primary); background: var(--bg-elevated); }
     .nav-tab.active {
-      color: var(--bg-primary);
-      background: linear-gradient(135deg, var(--accent), #00b8a0);
+      color: #ffffff;
+      background: #2563eb;
       font-weight: 600;
-      box-shadow: 0 2px 16px var(--accent-glow);
+      box-shadow: 0 2px 14px rgba(37, 99, 235, 0.4);
     }
     .nav-tab .tab-icon { font-size: 1.1em; }
 
     .nav-status {
       margin-left: auto;
-      display: flex; align-items: center; gap: 14px;
+      display: flex; align-items: center; gap: 8px;
     }
     .status-dot {
-      width: 8px; height: 8px;
+      width: 7px; height: 7px;
       border-radius: 50%;
-      background: var(--green);
-      
+      background: #64748b;
+      transition: all var(--transition);
     }
-    .status-dot.offline { background: var(--red);  }
+    .status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .status-dot.offline { background: var(--red); }
     
-    .status-text { font-size: 0.75rem; color: var(--text-muted); }
+    .status-text { font-size: 0.8rem; color: #94a3b8; font-weight: 500; }
 
     /* ═══════════════════════════════════════════════════════════
        Page Container
@@ -473,7 +474,7 @@
     .p2-step-num {
       width: 36px; height: 36px;
       border-radius: 50%;
-      background: var(--blue));
+      background: var(--blue);
       display: flex; align-items: center; justify-content: center;
       font-weight: 700; font-size: 0.85rem;
       color: white;
@@ -492,131 +493,236 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       PAGE 3 - 3D Animation & Learn Gestures
+       PAGE 3 - Text → Sign Language Avatar
        ═══════════════════════════════════════════════════════════ */
-    .p3-grid {
+    .avatar-main-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      grid-template-columns: 1.05fr 1fr;
+      gap: 24px;
+      align-items: stretch;
     }
-    .p3-3d-container {
-      height: 480px;
+    @media (max-width: 960px) {
+      .avatar-main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .avatar-card {
+      padding: 24px;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      position: relative;
-      overflow: hidden;
     }
-    #hand-canvas {
-      width: 100% !important; height: 100% !important;
-      border-radius: var(--radius-lg);
-    }
-    .p3-3d-controls {
-      position: absolute; bottom: 16px; left: 50%;
-      transform: translateX(-50%);
-      display: flex; gap: 6px;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(10px);
-      padding: 8px 12px;
-      border-radius: var(--radius-lg);
+    .avatar-textarea {
+      width: 100%;
+      background: #090d19;
       border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      padding: 14px 16px;
+      font-size: 1.05rem;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 1px;
+      resize: vertical;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      box-sizing: border-box;
     }
-    .p3-letter-btn {
-      width: 36px; height: 36px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--bg-card);
-      color: var(--text-primary);
-      font-weight: 600; font-size: 0.85rem;
+    .avatar-textarea:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+    }
+    .btn-avatar-primary {
+      width: 100%;
+      margin-top: 14px;
+      padding: 13px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       transition: all var(--transition);
-      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
     }
-    .p3-letter-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .p3-letter-btn.active {
-      background: var(--accent);
-      color: var(--bg-primary);
-      border-color: var(--accent);
+    .btn-avatar-primary:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
     }
-    .p3-gesture-info {
-      padding: 20px;
+    .avatar-actions-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
     }
-    .p3-gesture-name {
-      font-size: 5rem; font-weight: 800;
-      background: var(--blue));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .btn-avatar-secondary {
+      flex: 1;
+      padding: 9px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all var(--transition);
+    }
+    .btn-avatar-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
+    .avatar-subcard {
+      background: #090d19;
+      padding: 14px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .avatar-slider {
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: #1e293b;
+      accent-color: #2563eb;
+      cursor: pointer;
+      outline: none;
+      margin-top: 6px;
+    }
+    .avatar-letter-hero {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 56px;
+    }
+    #avatar-letter-display {
+      font-size: 3.2rem;
+      font-weight: 800;
+      color: #38bdf8;
+      font-family: 'JetBrains Mono', monospace;
+      text-shadow: 0 0 24px rgba(56, 189, 248, 0.5);
       line-height: 1;
-      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .p3-gesture-desc {
-      font-size: 1rem; color: var(--text-secondary);
-      margin-bottom: 16px;
+    .avatar-rest-bar {
+      display: inline-block;
+      width: 44px;
+      height: 6px;
+      background: #2563eb;
+      border-radius: 3px;
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.6);
     }
-    .p3-finger-bars { display: flex; flex-direction: column; gap: 8px; }
-    .p3-finger-row {
-      display: flex; align-items: center; gap: 10px;
+    .avatar-footnote {
+      margin-top: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: #64748b;
+      font-size: 0.78rem;
+      line-height: 1.4;
     }
-    .p3-finger-name {
-      font-size: 0.8rem; color: var(--text-muted);
-      width: 60px; text-align: right;
+    .avatar-char-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 12px;
+      justify-content: center;
+      max-height: 64px;
+      overflow-y: auto;
     }
-    .p3-finger-bar {
-      flex: 1; height: 8px;
-      background: var(--bg-secondary);
-      border-radius: 4px; overflow: hidden;
-    }
-    .p3-finger-fill {
-      height: 100%;
+    .avatar-char-chip {
+      padding: 3px 8px;
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
       border-radius: 4px;
-      transition: width 0.5s ease, background 0.5s ease;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+      cursor: pointer;
     }
-    .p3-finger-val {
-      font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;
-      color: var(--text-muted); width: 40px;
+    .avatar-char-chip:hover {
+      border-color: #38bdf8;
+      color: #fff;
+    }
+    .avatar-char-chip.active {
+      background: #2563eb;
+      color: #fff;
+      border-color: #38bdf8;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+      transform: scale(1.1);
+    }
+    .avatar-char-chip.passed {
+      color: var(--text-muted);
+      opacity: 0.5;
     }
 
-    /* Gesture Reference Gallery */
-    .p3-gallery-title {
-      display: flex; align-items: center; justify-content: space-between;
-      margin: 28px 0 16px;
-    }
-    .p3-gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 12px;
-    }
-    .p3-gallery-item {
-      background: var(--bg-card);
+    /* Right Card: Canvas Container */
+    .avatar-canvas-wrapper {
+      position: relative;
+      flex: 1;
+      min-height: 480px;
+      background: #090d18;
+      border-radius: var(--radius-lg);
       border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 16px 8px;
-      text-align: center;
-      cursor: pointer;
-      transition: all var(--transition);
-    }
-    .p3-gallery-item:hover {
-      border-color: var(--accent);
-      background: var(--bg-card-hover);
-      transform: translateY(-2px);
-    }
-    .p3-gallery-item.active {
-      border-color: var(--purple);
-      background: var(--purple-dim);
-      box-shadow: 0 0 20px var(--purple-glow);
-    }
-    .p3-gallery-letter {
-      font-size: 2rem; font-weight: 700;
-      color: var(--text-primary);
-      line-height: 1;
-    }
-    .p3-gallery-desc {
-      font-size: 0.65rem; color: var(--text-muted);
-      margin-top: 6px;
       overflow: hidden;
-      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .avatar-spotlight {
+      display: none;
+    }
+    #avatar-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+      z-index: 2;
+    }
+    .avatar-overlay-desc {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      z-index: 3;
+      pointer-events: none;
       white-space: nowrap;
+    }
+    .bottom-status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      background: #060913;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      z-index: 99;
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -729,27 +835,27 @@
   <nav class="nav" id="main-nav">
     <div class="nav-brand">
       <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.5"/><path d="M14 6v6l5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="14" cy="14" r="3" fill="currentColor"/></svg>
-      <span>SignLingo</span>
+      <span>Multilingual Sign Language Translator v2.0</span>
     </div>
 
     <div class="nav-tabs" id="nav-tabs">
       <button class="nav-tab active" data-page="page-recognize" id="tab-recognize">
-        <span class="tab-icon"></span> Recognition
-      </button>
-      <button class="nav-tab" data-page="page-teach" id="tab-teach">
-        <span class="tab-icon"></span> Teach
+        <span class="tab-icon">📷</span> Sign → Text &amp; Speech
       </button>
       <button class="nav-tab" data-page="page-3d" id="tab-3d">
-        <span class="tab-icon"></span> 3D &amp; Learn
+        <span class="tab-icon">👤</span> Text → Sign Avatar
+      </button>
+      <button class="nav-tab" data-page="page-teach" id="tab-teach">
+        <span class="tab-icon">✍️</span> Teach
       </button>
       <button class="nav-tab" data-page="page-history" id="tab-history">
-        <span class="tab-icon"></span> History
+        <span class="tab-icon">📊</span> History
       </button>
     </div>
 
     <div class="nav-status">
       <div class="status-dot" id="status-dot"></div>
-      <span class="status-text" id="status-text" style="margin-right: 8px;">System ready</span>
+      <span class="status-text" id="status-text" style="margin-right: 8px;">IDLE</span>
 
       
       {% if session.get('user_id') %}
@@ -934,54 +1040,79 @@
       </div>
     </div>
 
-    <!-- ─── PAGE 3: 3D ANIMATION & LEARN GESTURES ────────────────────── -->
+    <!-- ─── PAGE 3: TEXT → SIGN LANGUAGE AVATAR ────────────────────── -->
     <div class="page" id="page-3d">
-      <h2 class="section-title">3D Hand Model & Gesture Reference</h2>
-      <p class="section-subtitle">Explore ASL hand shapes with an interactive 3D model • Click any letter to learn the gesture</p>
+      <div class="avatar-main-grid">
+        <!-- Left Panel: Text Input & Controls -->
+        <div class="card avatar-card">
+          <div class="card-title" style="font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <span>Text → Sign Language Avatar</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+            Type any word or sentence below. The avatar will animate each letter using ASL.
+          </p>
 
-      <div class="p3-grid">
-        <!-- 3D Viewer -->
-        <div>
-          <div class="p3-3d-container" id="hand-3d-container">
-            <canvas id="hand-canvas"></canvas>
-            <div class="p3-3d-controls" id="letter-controls">
-              <!-- Populated by JS -->
+          <textarea id="avatar-input" class="avatar-textarea" rows="4" placeholder="HELLO WORLD">HELLO WORLD</textarea>
+
+          <button id="btn-avatar-animate" class="btn btn-avatar-primary">
+            <span>▶</span> Animate Avatar
+          </button>
+
+          <div class="avatar-actions-row">
+            <button id="btn-avatar-pause" class="btn btn-avatar-secondary">
+              <span id="avatar-pause-icon">⏸</span> <span id="avatar-pause-text">Pause</span>
+            </button>
+            <button id="btn-avatar-reset" class="btn btn-avatar-secondary">
+              <span>🔄</span> Reset
+            </button>
+          </div>
+
+          <!-- Speed Slider -->
+          <div class="avatar-subcard" style="margin-top: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">Animation Speed</span>
+              <span id="avatar-speed-val" class="mono" style="font-size: 0.85rem; font-weight: 600; color: #fff;">1.0x</span>
+            </div>
+            <input type="range" id="avatar-speed-slider" min="0.5" max="2.5" step="0.1" value="1.0" class="avatar-slider" />
+          </div>
+
+          <!-- Current Letter & Progress -->
+          <div class="avatar-subcard" style="margin-top: 14px;">
+            <div style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Signing Letter</div>
+            <div class="avatar-letter-hero">
+              <span id="avatar-letter-display"><span class="avatar-rest-bar"></span></span>
+            </div>
+            <div class="progress-track" style="height: 5px; margin-top: 8px; background: #1e293b;">
+              <div id="avatar-progress-bar" class="progress-fill" style="width: 15%; background: #2563eb;"></div>
+            </div>
+            <div id="avatar-char-chips" class="avatar-char-chips"></div>
+          </div>
+
+          <div class="avatar-footnote">
+            <span style="font-size: 0.95rem; color: #64748b; line-height: 1;">💡</span>
+            <div style="font-size: 0.78rem; color: #64748b; line-height: 1.35;">
+              Supports A–Z and spaces.<br>Special characters are skipped
             </div>
           </div>
         </div>
 
-        <!-- Gesture Info -->
-        <div>
-          <div class="card p3-gesture-info">
-            <div class="p3-gesture-name" id="gesture-3d-letter">A</div>
-            <div class="p3-gesture-desc" id="gesture-3d-desc">Fist with thumb alongside</div>
-            <div style="margin: 16px 0;">
-              <div class="card-title"><span class="icon">️</span> Finger Positions</div>
-              <div class="p3-finger-bars" id="finger-bars">
-                <!-- Populated by JS -->
-              </div>
-            </div>
-            <div class="badge badge-success" id="gesture-3d-badge">Recognized by model</div>
+        <!-- Right Panel: 3D Hand Avatar -->
+        <div class="card avatar-card" style="display: flex; flex-direction: column;">
+          <div class="card-title" style="justify-content: center; font-size: 1.15rem; font-weight: 700; text-align: center; margin-bottom: 12px;">
+            3D Hand Avatar
           </div>
 
-          <div class="card" style="margin-top: 16px;">
-            <div class="card-title"><span class="icon"></span> How to Sign</div>
-            <ol id="gesture-instructions" style="padding-left: 20px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
-              <li>Make a fist with your dominant hand</li>
-              <li>Place your thumb flat against the side of your fist</li>
-              <li>Face your palm towards the viewer</li>
-            </ol>
+          <div class="avatar-canvas-wrapper" id="avatar-canvas-container">
+            <div style="position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-size: 0.82rem; color: #64748b; font-weight: 500; z-index: 3; pointer-events: none;">
+              Hand Avatar
+            </div>
+            <canvas id="avatar-canvas"></canvas>
+            
+            <div class="avatar-overlay-desc">
+              <span id="avatar-sign-name">Relaxed (Neutral)</span>
+            </div>
           </div>
         </div>
-      </div>
-
-      <!-- Gesture Gallery -->
-      <div class="p3-gallery-title">
-        <h2 class="section-title" style="margin-bottom: 0;">Gesture Reference Library</h2>
-        <span class="badge badge-alpha" id="gallery-count">26 Alphabets</span>
-      </div>
-      <div class="p3-gallery" id="gesture-gallery">
-        <!-- Populated by JS -->
       </div>
     </div>
 
@@ -1082,7 +1213,10 @@
 
         // Page-specific hooks
         if (target === 'page-history') { refreshHistory(); refreshStats(); }
-        if (target === 'page-3d' && !hand3dInitialized) { initHand3D(); }
+        if (target === 'page-3d') {
+          if (!avatarInitialized) { initAvatarSystem(); }
+          else if (window.resizeAvatarCanvas) { window.resizeAvatarCanvas(); }
+        }
       });
     });
 
@@ -1170,17 +1304,39 @@
 
         const s = data.state;
 
-        // Prediction
-        if (s.translation && s.translation !== s.label) {
-          document.getElementById('pred-sign').textContent = s.translation;
-          document.getElementById('pred-translation').textContent = `English: ${s.label}`;
+        // Prediction & Multilingual Translation Display
+        const hasPrediction = s.label && s.label !== '—' && s.label !== '-';
+        const currentLang = document.getElementById('language-select') ? document.getElementById('language-select').value : (s.target_language || 'English');
+        const langLabelEl = document.getElementById('pred-lang-label');
+        if (langLabelEl) langLabelEl.textContent = currentLang;
+
+        if (hasPrediction) {
+          document.getElementById('pred-sign').textContent = s.label;
+          document.getElementById('pred-conf').textContent =
+            s.confidence ? (s.confidence * 100).toFixed(1) + '%' : '0.0%';
+
+          let translatedText = s.label;
+          if (currentLang === 'English') {
+            translatedText = s.label;
+          } else {
+            // Target is a non-English language (e.g. Kannada, Hindi, Tamil)
+            if (s.translation && s.translation !== '—') {
+              translatedText = s.translation;
+            } else {
+              translatedText = 'Translating…';
+            }
+          }
+          document.getElementById('pred-translation').textContent = translatedText;
+
+          // Multilingual TTS speech (browser native voices)
+          if (typeof speakTranslation === 'function' && translatedText !== 'Translating…') {
+            speakTranslation(translatedText, currentLang);
+          }
         } else {
-          document.getElementById('pred-sign').textContent = s.label || '-';
+          document.getElementById('pred-sign').textContent = '-';
+          document.getElementById('pred-conf').textContent = '0.0%';
           document.getElementById('pred-translation').textContent = '-';
         }
-        
-        document.getElementById('pred-conf').textContent =
-          s.confidence ? (s.confidence * 100).toFixed(1) + '%' : '0.0%';
 
         // Mode badge
         const badge = modeBadgeMap[s.mode] || modeBadgeMap['IDLE'];
@@ -1298,10 +1454,55 @@
       }
     }
 
-    // ═══ PAGE 1 - Controls ═══════════════════════════════════════════
+    // ═══ PAGE 1 - Controls & Multilingual Audio TTS ═════════════════
+    let lastSpokenText = '';
+    let lastSpokenTime = 0;
+    const LANG_SPEECH_MAP = {
+      'English': 'en-US',
+      'Kannada': 'kn-IN',
+      'Hindi': 'hi-IN',
+      'Tamil': 'ta-IN',
+      'Telugu': 'te-IN',
+      'Malayalam': 'ml-IN',
+      'French': 'fr-FR',
+      'German': 'de-DE',
+      'Spanish': 'es-ES'
+    };
+
+    function speakTranslation(text, langName) {
+      if (!window.speechSynthesis) return;
+      const ttsToggle = document.getElementById('tts-toggle');
+      if (!ttsToggle || !ttsToggle.classList.contains('on')) return;
+      if (!text || text === '-' || text === '—' || text === 'Translating…') return;
+
+      const now = Date.now();
+      if (text === lastSpokenText && (now - lastSpokenTime) < 3000) return;
+
+      lastSpokenText = text;
+      lastSpokenTime = now;
+
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        const code = LANG_SPEECH_MAP[langName] || 'en-US';
+        utter.lang = code;
+        utter.rate = 0.95;
+        const voices = window.speechSynthesis.getVoices();
+        const matched = voices.find(v => v.lang === code || v.lang.startsWith(code.split('-')[0]));
+        if (matched) utter.voice = matched;
+        window.speechSynthesis.speak(utter);
+      } catch (err) {
+        console.warn('SpeechSynthesis err:', err);
+      }
+    }
+
+    if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+    }
+
     document.getElementById('language-select').addEventListener('change', async (e) => {
-      await post('/api/set_language', { language: e.target.value });
       document.getElementById('pred-lang-label').textContent = e.target.value;
+      await post('/api/set_language', { language: e.target.value });
     });
 
     const ttsToggle = document.getElementById('tts-toggle');
@@ -1340,328 +1541,554 @@
       document.getElementById('teach-train-status').textContent = '';
     });
 
-    // ═══ PAGE 3 - 3D Hand Model (Three.js) ══════════════════════════
-    let hand3dInitialized = false;
-    let handPoseData = {};
-    let currentLetter = 'A';
-    let scene, camera, renderer, handGroup;
+    // ═══════════════════════════════════════════════════════════════════
+    // PAGE 3 - Text → Sign Language Avatar Engine
+    // ═══════════════════════════════════════════════════════════════════
+    let avatarInitialized = false;
+    let avatarCanvas = null;
+    let avatarCtx = null;
+    let avatarAnimationId = null;
 
-    // finger names for display
-    const FINGER_NAMES = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
-    const FINGER_KEYS = ['thumb', 'index', 'middle', 'ring', 'pinky'];
-    const FINGER_COLORS = ['#f59e0b', '#38bdf8', '#22c55e', '#7c3aed', '#ec4899'];
+    // Kinematic poses for all 26 ASL alphabet letters + space
+    const ASL_AVATAR_POSES = {
+      'A': { curls: [0.15, 1.0, 1.0, 1.0, 1.0], thumbMode: 'UP', desc: 'Fist with thumb upright alongside' },
+      'B': { curls: [0.95, 0.0, 0.0, 0.0, 0.0], thumbMode: 'FOLD', spread: 0.0, desc: 'Flat open hand, 4 fingers straight together' },
+      'C': { curls: [0.40, 0.45, 0.45, 0.45, 0.45], thumbMode: 'TOUCH_ALL', desc: 'Curved hand forming C shape' },
+      'D': { curls: [0.60, 0.0, 0.95, 0.95, 0.95], thumbMode: 'TOUCH_MIDDLE', desc: 'Index pointing up, thumb touches other fingers' },
+      'E': { curls: [0.90, 0.90, 0.90, 0.90, 0.90], thumbMode: 'FOLD', desc: 'Tight curled fingers resting on thumb' },
+      'F': { curls: [0.60, 0.65, 0.0, 0.0, 0.0], thumbMode: 'TOUCH_INDEX', spread: 0.25, desc: 'Thumb & index touching in circle, 3 fingers up' },
+      'G': { curls: [0.15, 0.05, 1.0, 1.0, 1.0], thumbMode: 'PARALLEL', wristAngle: 0.75, desc: 'Index pointing sideways, thumb parallel' },
+      'H': { curls: [0.55, 0.05, 0.05, 1.0, 1.0], thumbMode: 'FOLD', wristAngle: 0.75, spread: 0.0, desc: 'Index & middle extended sideways together' },
+      'I': { curls: [0.80, 1.0, 1.0, 1.0, 0.0], thumbMode: 'FOLD', desc: 'Pinky extended straight up' },
+      'J': { curls: [0.80, 1.0, 1.0, 1.0, 0.0], thumbMode: 'FOLD', wristAngle: -0.35, desc: 'Pinky tracing a downward J curve' },
+      'K': { curls: [0.35, 0.0, 0.30, 1.0, 1.0], thumbMode: 'UP', desc: 'Index up, middle forward, thumb between' },
+      'L': { curls: [0.0, 0.0, 1.0, 1.0, 1.0], thumbMode: 'SIDE', desc: 'Thumb & index form L shape' },
+      'M': { curls: [0.80, 0.95, 0.95, 0.95, 1.0], thumbMode: 'UNDER_3', desc: 'Fist with thumb under 3 fingers' },
+      'N': { curls: [0.80, 0.95, 0.95, 1.0, 1.0], thumbMode: 'UNDER_2', desc: 'Fist with thumb under 2 fingers' },
+      'O': { curls: [0.65, 0.70, 0.70, 0.70, 0.70], thumbMode: 'TOUCH_ALL', desc: 'All fingertips touch thumb in O shape' },
+      'P': { curls: [0.35, 0.0, 0.30, 1.0, 1.0], wristAngle: -1.55, desc: 'Like K pointing downward' },
+      'Q': { curls: [0.15, 0.05, 1.0, 1.0, 1.0], thumbMode: 'PARALLEL', wristAngle: -1.55, desc: 'Like G pointing downward' },
+      'R': { curls: [0.80, 0.0, 0.0, 1.0, 1.0], cross: true, desc: 'Index & middle fingers crossed' },
+      'S': { curls: [0.85, 1.0, 1.0, 1.0, 1.0], thumbMode: 'ACROSS', desc: 'Tight fist with thumb across front of fingers' },
+      'T': { curls: [0.80, 0.95, 1.0, 1.0, 1.0], thumbMode: 'UNDER_1', desc: 'Thumb tucked between index and middle' },
+      'U': { curls: [0.80, 0.0, 0.0, 1.0, 1.0], spread: 0.0, desc: 'Index & middle extended together touching' },
+      'V': { curls: [0.80, 0.0, 0.0, 1.0, 1.0], spread: 0.40, desc: 'Index & middle spread in V peace sign' },
+      'W': { curls: [0.80, 0.0, 0.0, 0.0, 1.0], spread: 0.35, desc: 'Index, middle, & ring spread in W shape' },
+      'X': { curls: [0.80, 0.50, 1.0, 1.0, 1.0], hook: true, desc: 'Index finger hooked into shape' },
+      'Y': { curls: [0.0, 1.0, 1.0, 1.0, 0.0], thumbMode: 'SIDE', desc: 'Thumb & pinky extended (hang loose / shaka)' },
+      'Z': { curls: [0.80, 0.0, 1.0, 1.0, 1.0], wristAngle: -0.15, desc: 'Index finger tracing Z shape in air' },
+      ' ': { curls: [0.0, 0.0, 0.0, 0.0, 0.0], thumbMode: 'SIDE', spread: 0.0, desc: 'Rest Hand (Neutral)' }
+    };
 
-    async function loadHandPoses() {
-      try {
-        handPoseData = await fetch('/api/hand_poses').then(r => r.json());
-      } catch(e) { console.error('Failed to load hand poses', e); }
-    }
+    // Calculate 21 normalized landmarks from kinematic parameters (Right hand palm-facing)
+    function computeHandLandmarks(poseDef) {
+      const def = poseDef || ASL_AVATAR_POSES[' '];
+      const curls = def.curls || [0.0, 0.0, 0.0, 0.0, 0.0];
+      const spread = def.spread !== undefined ? def.spread : 0.0;
+      const wristAngle = def.wristAngle || 0.0;
+      const thumbMode = def.thumbMode || 'SIDE';
+      const cross = def.cross || false;
+      const hook = def.hook || false;
 
-    function initHand3D() {
-      if (hand3dInitialized) return;
-      hand3dInitialized = true;
+      const pts = new Array(21);
+      // Joint 0: Wrist
+      pts[0] = { x: 0.0, y: 0.0 };
 
-      const container = document.getElementById('hand-3d-container');
-      const canvas = document.getElementById('hand-canvas');
-
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0c0c1d);
-
-      // Add subtle ambient fog
-      scene.fog = new THREE.FogExp2(0x0c0c1d, 0.015);
-
-      camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
-      camera.position.set(0, 2, 8);
-      camera.lookAt(0, 1, 0);
-
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-      renderer.setSize(container.clientWidth, container.clientHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-      // Lights
-      const ambient = new THREE.AmbientLight(0x444466, 0.6);
-      scene.add(ambient);
-
-      const key = new THREE.DirectionalLight(0xffffff, 0.8);
-      key.position.set(4, 8, 6);
-      key.castShadow = true;
-      scene.add(key);
-
-      const fill = new THREE.PointLight(0x00e5cc, 0.5, 20);
-      fill.position.set(-3, 3, 4);
-      scene.add(fill);
-
-      const rim = new THREE.PointLight(0x7c3aed, 0.3, 15);
-      rim.position.set(3, 1, -3);
-      scene.add(rim);
-
-      // Ground plane
-      const groundGeo = new THREE.PlaneGeometry(20, 20);
-      const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a0a1e, roughness: 0.9 });
-      const ground = new THREE.Mesh(groundGeo, groundMat);
-      ground.rotation.x = -Math.PI / 2;
-      ground.receiveShadow = true;
-      scene.add(ground);
-
-      // Build the hand
-      handGroup = new THREE.Group();
-      scene.add(handGroup);
-      buildHand();
-
-      // Rotation animation
-      let rotY = 0;
-      function animate() {
-        requestAnimationFrame(animate);
-        rotY += 0.003;
-        handGroup.rotation.y = Math.sin(rotY) * 0.3;
-        renderer.render(scene, camera);
-      }
-      animate();
-
-      // Resize handler
-      window.addEventListener('resize', () => {
-        const w = container.clientWidth;
-        const h = container.clientHeight;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, h);
-      });
-
-      // Build letter buttons
-      buildLetterControls();
-
-      // Build gallery
-      buildGestureGallery();
-
-      // Show first letter
-      showLetter('A');
-    }
-
-    function buildHand() {
-      // Simplified 3D hand using cylinders and spheres
-      const skinColor = 0xf4c7a1;
-      const jointColor = 0xd4a680;
-
-      const jointMat = new THREE.MeshStandardMaterial({
-        color: jointColor, roughness: 0.6, metalness: 0.1
-      });
-      const boneMat = new THREE.MeshStandardMaterial({
-        color: skinColor, roughness: 0.5, metalness: 0.05
-      });
-
-      // Palm
-      const palmGeo = new THREE.BoxGeometry(2.2, 0.5, 2.5);
-      const palm = new THREE.Mesh(palmGeo, boneMat);
-      palm.position.set(0, 2, 0);
-      palm.castShadow = true;
-      handGroup.add(palm);
-
-      // Wrist
-      const wristGeo = new THREE.CylinderGeometry(0.5, 0.6, 1, 12);
-      const wrist = new THREE.Mesh(wristGeo, boneMat);
-      wrist.position.set(0, 1.2, 0);
-      wrist.castShadow = true;
-      handGroup.add(wrist);
-
-      // Fingers - each finger has 3 segments (bones)
-      const fingerOffsets = [
-        { x: -1.1, z: -0.6, len: [0.7, 0.5, 0.4], radius: 0.16, name: 'thumb' },
-        { x: -0.6, z: 1.2,  len: [0.8, 0.6, 0.5], radius: 0.14, name: 'index' },
-        { x: -0.05, z: 1.3, len: [0.9, 0.7, 0.5], radius: 0.14, name: 'middle' },
-        { x: 0.5,  z: 1.2,  len: [0.8, 0.6, 0.45], radius: 0.13, name: 'ring' },
-        { x: 0.95, z: 1.0,  len: [0.6, 0.45, 0.35], radius: 0.12, name: 'pinky' },
+      // Base MCP coordinates relative to wrist (Index closest to thumb on right, Pinky on left)
+      const mcpBases = [
+        { x:  0.06, y: 0.44 }, // Index (f=0)
+        { x: -0.03, y: 0.46 }, // Middle (f=1)
+        { x: -0.11, y: 0.44 }, // Ring (f=2)
+        { x: -0.19, y: 0.38 }  // Pinky (f=3)
       ];
 
-      handGroup._fingers = {};
+      // Base angles for fingers (pointing upwards from wrist)
+      const baseAngles = [
+        Math.PI * 0.5 - spread * 0.8, // Index
+        Math.PI * 0.5 + spread * 0.1, // Middle
+        Math.PI * 0.5 + spread * 0.7, // Ring
+        Math.PI * 0.5 + spread * 1.4  // Pinky
+      ];
 
-      fingerOffsets.forEach(f => {
-        const fingerGroup = new THREE.Group();
-        fingerGroup.position.set(f.x, 2.25, f.z);
+      const lengths = [
+        [0.14, 0.12, 0.10], // Index
+        [0.15, 0.13, 0.11], // Middle
+        [0.14, 0.12, 0.10], // Ring
+        [0.12, 0.10, 0.08]  // Pinky
+      ];
 
-        const segments = [];
-        let yOff = 0;
+      // Build 4 fingers: Index (5-8), Middle (9-12), Ring (13-16), Pinky (17-20)
+      for (let f = 0; f < 4; f++) {
+        const curl = curls[f + 1];
+        const mcpIdx = 5 + f * 4;
+        const mcp = mcpBases[f];
+        pts[mcpIdx] = { x: mcp.x, y: mcp.y };
 
-        f.len.forEach((len, i) => {
-          // Joint sphere
-          const jointGeo = new THREE.SphereGeometry(f.radius * 1.15, 8, 8);
-          const joint = new THREE.Mesh(jointGeo, jointMat);
-          joint.position.set(0, yOff, 0);
-          joint.castShadow = true;
-          fingerGroup.add(joint);
-
-          // Bone cylinder
-          const boneGeo = new THREE.CylinderGeometry(f.radius, f.radius * 0.95, len, 8);
-          const bone = new THREE.Mesh(boneGeo, boneMat);
-          bone.position.set(0, yOff + len / 2, 0);
-          bone.castShadow = true;
-          fingerGroup.add(bone);
-
-          segments.push({ joint, bone, len });
-          yOff += len;
-        });
-
-        // Fingertip
-        const tipGeo = new THREE.SphereGeometry(f.radius, 8, 8);
-        const tip = new THREE.Mesh(tipGeo, boneMat);
-        tip.position.set(0, yOff, 0);
-        tip.castShadow = true;
-        fingerGroup.add(tip);
-
-        handGroup.add(fingerGroup);
-        handGroup._fingers[f.name] = { group: fingerGroup, segments, curl: 0 };
-      });
-    }
-
-    function setCurl(fingerName, curl) {
-      // curl: 0 = fully extended, 1 = fully curled
-      const finger = handGroup._fingers[fingerName];
-      if (!finger) return;
-
-      const angle = curl * -Math.PI * 0.45;  // max ~80 degrees per joint
-      let yOff = 0;
-
-      finger.segments.forEach((seg, i) => {
-        seg.joint.position.y = yOff;
-        seg.bone.position.y = yOff + seg.len / 2;
-
-        if (i > 0) {
-          seg.joint.rotation.x = angle;
-          seg.bone.rotation.x = angle;
+        let ang = baseAngles[f];
+        if (cross && f === 1) {
+          // Middle finger crossed over index
+          ang = baseAngles[0] - 0.14;
         }
-        yOff += seg.len;
-      });
 
-      // Rotate entire finger group for curl effect
-      finger.group.rotation.x = angle * 0.6;
+        const [l1, l2, l3] = lengths[f];
+        // Joint 1: PIP
+        let pipAngle = ang;
+        if (curl > 0.0) pipAngle -= curl * 0.4;
+        const pip = {
+          x: pts[mcpIdx].x + Math.cos(pipAngle) * (l1 * (1.0 - curl * 0.1)),
+          y: pts[mcpIdx].y + Math.sin(pipAngle) * (l1 * (1.0 - curl * 0.15))
+        };
+        pts[mcpIdx + 1] = pip;
 
-      // Special handling for thumb
-      if (fingerName === 'thumb') {
-        finger.group.rotation.z = curl * 0.3;
+        // Joint 2: DIP
+        let dipAngle = ang - curl * 1.4;
+        if (hook && f === 0) dipAngle = ang - 0.9;
+        const dip = {
+          x: pip.x + Math.cos(dipAngle) * (l2 * (1.0 - curl * 0.1)),
+          y: pip.y + Math.sin(dipAngle) * (l2 * (1.0 - curl * 0.1))
+        };
+        pts[mcpIdx + 2] = dip;
+
+        // Joint 3: TIP
+        let tipAngle = ang - curl * 2.3;
+        if (hook && f === 0) tipAngle = ang - 1.8;
+        const tip = {
+          x: dip.x + Math.cos(tipAngle) * l3,
+          y: dip.y + Math.sin(tipAngle) * l3
+        };
+        pts[mcpIdx + 3] = tip;
       }
 
-      finger.curl = curl;
+      // Build Thumb on right side (1: CMC, 2: MCP, 3: IP, 4: TIP)
+      const cmc = { x: 0.13, y: 0.08 };
+      pts[1] = cmc;
+
+      if (thumbMode === 'SIDE') {
+        pts[2] = { x: 0.27, y: 0.14 };
+        pts[3] = { x: 0.41, y: 0.20 };
+        pts[4] = { x: 0.55, y: 0.26 };
+      } else if (thumbMode === 'UP') {
+        pts[2] = { x: 0.14, y: 0.22 };
+        pts[3] = { x: 0.15, y: 0.36 };
+        pts[4] = { x: 0.15, y: 0.50 };
+      } else if (thumbMode === 'TOUCH_INDEX') {
+        const idxTip = pts[8];
+        pts[2] = { x: 0.12, y: 0.20 };
+        pts[3] = { x: (pts[2].x + idxTip.x) * 0.5 + 0.03, y: (pts[2].y + idxTip.y) * 0.5 };
+        pts[4] = { x: idxTip.x + 0.02, y: idxTip.y };
+      } else if (thumbMode === 'TOUCH_MIDDLE') {
+        const midTip = pts[12];
+        pts[2] = { x: 0.10, y: 0.20 };
+        pts[3] = { x: (pts[2].x + midTip.x) * 0.5 + 0.03, y: (pts[2].y + midTip.y) * 0.5 };
+        pts[4] = { x: midTip.x + 0.02, y: midTip.y };
+      } else if (thumbMode === 'TOUCH_ALL') {
+        pts[2] = { x: 0.16, y: 0.22 };
+        pts[3] = { x: 0.08, y: 0.36 };
+        pts[4] = { x: -0.02, y: 0.42 };
+      } else if (thumbMode === 'PARALLEL') {
+        pts[2] = { x: 0.10, y: 0.22 };
+        pts[3] = { x: 0.14, y: 0.34 };
+        pts[4] = { x: 0.18, y: 0.42 };
+      } else if (thumbMode === 'UNDER_3') {
+        pts[2] = { x: 0.06, y: 0.18 };
+        pts[3] = { x: -0.04, y: 0.26 };
+        pts[4] = { x: -0.12, y: 0.30 };
+      } else if (thumbMode === 'UNDER_2') {
+        pts[2] = { x: 0.06, y: 0.18 };
+        pts[3] = { x: 0.00, y: 0.26 };
+        pts[4] = { x: -0.05, y: 0.30 };
+      } else if (thumbMode === 'UNDER_1') {
+        pts[2] = { x: 0.08, y: 0.20 };
+        pts[3] = { x: 0.04, y: 0.28 };
+        pts[4] = { x: 0.01, y: 0.34 };
+      } else if (thumbMode === 'ACROSS') {
+        pts[2] = { x: 0.08, y: 0.18 };
+        pts[3] = { x: -0.02, y: 0.26 };
+        pts[4] = { x: -0.10, y: 0.28 };
+      } else if (thumbMode === 'FOLD') {
+        pts[2] = { x: 0.06, y: 0.16 };
+        pts[3] = { x: -0.02, y: 0.22 };
+        pts[4] = { x: -0.08, y: 0.26 };
+      } else { // RELAX / DEFAULT
+        pts[2] = { x: 0.27, y: 0.14 };
+        pts[3] = { x: 0.41, y: 0.20 };
+        pts[4] = { x: 0.55, y: 0.26 };
+      }
+
+      // Apply whole-hand rotation if specified
+      if (wristAngle !== 0.0) {
+        const cosW = Math.cos(wristAngle);
+        const sinW = Math.sin(wristAngle);
+        for (let i = 1; i < 21; i++) {
+          const rx = pts[i].x * cosW - pts[i].y * sinW;
+          const ry = pts[i].x * sinW + pts[i].y * cosW;
+          pts[i] = { x: rx, y: ry };
+        }
+      }
+
+      return pts;
     }
 
-    function showLetter(letter) {
-      currentLetter = letter;
-      const pose = handPoseData[letter];
-      if (!pose) return;
+    // State for live Avatar animation
+    let currentAvatarLandmarks = computeHandLandmarks(ASL_AVATAR_POSES[' ']);
+    let targetAvatarLandmarks = computeHandLandmarks(ASL_AVATAR_POSES[' ']);
+    let isAvatarPlaying = false;
+    let isAvatarPaused = false;
+    let avatarPlayQueue = [];
+    let avatarCurrentQueueIndex = 0;
+    let avatarCharTimer = null;
+    let avatarSpeed = 1.0;
 
-      // Animate finger curls
-      FINGER_KEYS.forEach(key => {
-        const val = pose.fingers[key] || 0;
-        setCurl(key, val);
-      });
+    // Bone topology definitions (MediaPipe topology)
+    const BONE_CONNECTIONS = [
+      // Fan lines from wrist to the 4 MCP base joints
+      [0, 5, '#0284c7'],
+      [0, 9, '#0284c7'],
+      [0, 13, '#0284c7'],
+      [0, 17, '#0284c7'],
+      // Palm arch connecting MCPs
+      [5, 9, '#0284c7'],
+      [9, 13, '#0284c7'],
+      [13, 17, '#0284c7'],
+      // Thumb (Orange bones)
+      [0, 1, '#ea580c'],
+      [1, 2, '#ea580c'],
+      [2, 3, '#ea580c'],
+      [3, 4, '#ea580c'],
+      // Index (Cyan bones)
+      [5, 6, '#0284c7'],
+      [6, 7, '#0284c7'],
+      [7, 8, '#0284c7'],
+      // Middle
+      [9, 10, '#0284c7'],
+      [10, 11, '#0284c7'],
+      [11, 12, '#0284c7'],
+      // Ring
+      [13, 14, '#0284c7'],
+      [14, 15, '#0284c7'],
+      [15, 16, '#0284c7'],
+      // Pinky
+      [17, 18, '#0284c7'],
+      [18, 19, '#0284c7'],
+      [19, 20, '#0284c7']
+    ];
 
-      // Apply wrist rotation
-      if (pose.wrist_rotation) {
-        handGroup.rotation.x = pose.wrist_rotation[0] * 0.5;
-        handGroup.rotation.z = pose.wrist_rotation[2] * 0.5;
-      } else {
-        handGroup.rotation.x = 0;
-        handGroup.rotation.z = 0;
+    function initAvatarSystem() {
+      if (avatarInitialized) return;
+      avatarInitialized = true;
+
+      avatarCanvas = document.getElementById('avatar-canvas');
+      if (!avatarCanvas) return;
+      avatarCtx = avatarCanvas.getContext('2d');
+
+      function resizeAvatarCanvas() {
+        const container = document.getElementById('avatar-canvas-container');
+        if (!container) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        avatarCanvas.width = w * dpr;
+        avatarCanvas.height = h * dpr;
+        avatarCtx.setTransform(1, 0, 0, 1, 0, 0);
+        avatarCtx.scale(dpr, dpr);
+      }
+      window.resizeAvatarCanvas = resizeAvatarCanvas;
+      resizeAvatarCanvas();
+      window.addEventListener('resize', resizeAvatarCanvas);
+
+      // Animation Loop (60 FPS smooth lerp)
+      function avatarLoop() {
+        avatarAnimationId = requestAnimationFrame(avatarLoop);
+        const container = document.getElementById('avatar-canvas-container');
+        if (!container) return;
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        if (w === 0 || h === 0) return;
+
+        // Smooth exponential lerp towards target
+        const lerpFactor = 0.18;
+        for (let i = 0; i < 21; i++) {
+          currentAvatarLandmarks[i].x += (targetAvatarLandmarks[i].x - currentAvatarLandmarks[i].x) * lerpFactor;
+          currentAvatarLandmarks[i].y += (targetAvatarLandmarks[i].y - currentAvatarLandmarks[i].y) * lerpFactor;
+        }
+
+        renderAvatarFrame(avatarCtx, w, h, currentAvatarLandmarks);
+      }
+      avatarLoop();
+
+      // UI Controls Binding
+      const btnAnimate = document.getElementById('btn-avatar-animate');
+      const btnPause = document.getElementById('btn-avatar-pause');
+      const btnReset = document.getElementById('btn-avatar-reset');
+      const speedSlider = document.getElementById('avatar-speed-slider');
+      const speedVal = document.getElementById('avatar-speed-val');
+
+      if (btnAnimate) {
+        btnAnimate.addEventListener('click', startAvatarAnimation);
       }
 
-      // Update info panel
-      document.getElementById('gesture-3d-letter').textContent = letter;
-      document.getElementById('gesture-3d-desc').textContent = pose.description || '';
-
-      // Update finger bars
-      const barsEl = document.getElementById('finger-bars');
-      barsEl.innerHTML = FINGER_NAMES.map((name, i) => {
-        const val = pose.fingers[FINGER_KEYS[i]] || 0;
-        const pct = val * 100;
-        const barColor = pct > 60 ? 'var(--red)' : pct > 30 ? 'var(--amber)' : 'var(--green)';
-        const label = pct > 60 ? 'Curled' : pct > 30 ? 'Partial' : 'Extended';
-        return `
-          <div class="p3-finger-row">
-            <span class="p3-finger-name">${name}</span>
-            <div class="p3-finger-bar">
-              <div class="p3-finger-fill" style="width:${pct}%; background:${barColor};"></div>
-            </div>
-            <span class="p3-finger-val">${label}</span>
-          </div>`;
-      }).join('');
-
-      // Update instructions
-      const instrEl = document.getElementById('gesture-instructions');
-      const instructions = generateInstructions(letter, pose);
-      instrEl.innerHTML = instructions.map(s => `<li>${s}</li>`).join('');
-
-      // Update gallery active state
-      document.querySelectorAll('.p3-gallery-item').forEach(el => {
-        el.classList.toggle('active', el.dataset.letter === letter);
-      });
-
-      // Update letter button active state
-      document.querySelectorAll('.p3-letter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.letter === letter);
-      });
-    }
-
-    function generateInstructions(letter, pose) {
-      const steps = [];
-      const curled = [];
-      const extended = [];
-      FINGER_KEYS.forEach((key, i) => {
-        const val = pose.fingers[key] || 0;
-        if (val > 0.6) curled.push(FINGER_NAMES[i]);
-        else if (val < 0.3) extended.push(FINGER_NAMES[i]);
-      });
-
-      if (curled.length > 0 && curled.length <= 4) {
-        steps.push(`Curl your ${curled.join(', ').toLowerCase()} finger(s) into your palm`);
-      }
-      if (extended.length > 0 && extended.length <= 4) {
-        steps.push(`Extend your ${extended.join(', ').toLowerCase()} finger(s) straight up`);
-      }
-      if (curled.length === 5) steps.push('Make a tight fist with all fingers');
-      if (extended.length === 5) steps.push('Open your hand flat with all fingers extended');
-
-      steps.push(pose.description || 'Form the shape shown in the 3D model');
-      steps.push('Face your palm towards the camera');
-      return steps;
-    }
-
-    function buildLetterControls() {
-      const container = document.getElementById('letter-controls');
-      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      // Show subset in controls (full set in gallery)
-      const subset = 'ABCDEFGHIJ';
-      container.innerHTML = subset.split('').map(l =>
-        `<button class="p3-letter-btn ${l === 'A' ? 'active' : ''}" data-letter="${l}">${l}</button>`
-      ).join('') + `<button class="p3-letter-btn" style="font-size:0.7rem;">…</button>`;
-
-      container.querySelectorAll('.p3-letter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          if (btn.dataset.letter) showLetter(btn.dataset.letter);
+      if (btnPause) {
+        btnPause.addEventListener('click', () => {
+          if (!isAvatarPlaying) return;
+          isAvatarPaused = !isAvatarPaused;
+          const icon = document.getElementById('avatar-pause-icon');
+          const text = document.getElementById('avatar-pause-text');
+          if (isAvatarPaused) {
+            if (icon) icon.textContent = '▶';
+            if (text) text.textContent = 'Resume';
+            if (avatarCharTimer) clearTimeout(avatarCharTimer);
+          } else {
+            if (icon) icon.textContent = '⏸';
+            if (text) text.textContent = 'Pause';
+            playNextAvatarChar();
+          }
         });
-      });
-    }
+      }
 
-    function buildGestureGallery() {
-      const gallery = document.getElementById('gesture-gallery');
-      gallery.innerHTML = Object.entries(handPoseData).map(([letter, pose]) =>
-        `<div class="p3-gallery-item ${letter === 'A' ? 'active' : ''}" data-letter="${letter}">
-          <div class="p3-gallery-letter">${letter}</div>
-          <div class="p3-gallery-desc">${pose.description || ''}</div>
-        </div>`
-      ).join('');
+      if (btnReset) {
+        btnReset.addEventListener('click', resetAvatarAnimation);
+      }
 
-      gallery.querySelectorAll('.p3-gallery-item').forEach(item => {
-        item.addEventListener('click', () => {
-          showLetter(item.dataset.letter);
+      if (speedSlider) {
+        speedSlider.addEventListener('input', (e) => {
+          avatarSpeed = parseFloat(e.target.value) || 1.0;
+          if (speedVal) speedVal.textContent = avatarSpeed.toFixed(1) + 'x';
         });
-      });
+      }
 
-      document.getElementById('gallery-count').textContent =
-        Object.keys(handPoseData).length + ' Gestures';
+      // Initial hand preview in neutral rest pose
+      showAvatarChar(' ', true);
     }
 
-    // Load hand poses on page load
-    loadHandPoses();
+    function renderAvatarFrame(ctx, width, height, landmarks) {
+      ctx.clearRect(0, 0, width, height);
+
+      const cx = width / 2;
+      const cy = height * 0.74;
+      const scale = Math.min(width, height) * 0.46;
+
+      // Draw dark circular spotlight backdrop
+      ctx.save();
+      const spotY = cy - 0.30 * scale;
+      const spotRadius = scale * 0.88;
+      
+      ctx.beginPath();
+      ctx.arc(cx, spotY, spotRadius, 0, Math.PI * 2);
+      ctx.fillStyle = '#172033';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+      ctx.stroke();
+      ctx.restore();
+
+      // Transform landmarks to canvas coordinates
+      const screenPts = landmarks.map(p => ({
+        x: cx + p.x * scale,
+        y: cy - p.y * scale
+      }));
+
+      // Draw bone segments
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      for (const [i1, i2, col] of BONE_CONNECTIONS) {
+        const p1 = screenPts[i1];
+        const p2 = screenPts[i2];
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.lineWidth = 3.2;
+        ctx.strokeStyle = col;
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Draw joints (0: White wrist, 1-4: Orange thumb, 5-20: Neon green fingers)
+      for (let i = 0; i < 21; i++) {
+        const pt = screenPts[i];
+        ctx.save();
+        ctx.beginPath();
+
+        if (i === 0) {
+          // Wrist: Prominent white circle
+          ctx.arc(pt.x, pt.y, 8.0, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 12;
+          ctx.fill();
+        } else if (i >= 1 && i <= 4) {
+          // Thumb: Orange/amber node
+          ctx.arc(pt.x, pt.y, 6.2, 0, Math.PI * 2);
+          ctx.fillStyle = '#fb923c';
+          ctx.shadowColor = '#ea580c';
+          ctx.shadowBlur = 8;
+          ctx.fill();
+        } else {
+          // Fingers: Neon green node
+          ctx.arc(pt.x, pt.y, 6.0, 0, Math.PI * 2);
+          ctx.fillStyle = '#22c55e';
+          ctx.shadowColor = '#10b981';
+          ctx.shadowBlur = 8;
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    function showAvatarChar(ch, updateHero = true) {
+      const char = (ch || ' ').toUpperCase();
+      const pose = ASL_AVATAR_POSES[char] || ASL_AVATAR_POSES[' '];
+      targetAvatarLandmarks = computeHandLandmarks(pose);
+
+      if (updateHero) {
+        const disp = document.getElementById('avatar-letter-display');
+        if (disp) {
+          if (char === ' ') {
+            disp.innerHTML = '<span class="avatar-rest-bar"></span>';
+          } else {
+            disp.textContent = char;
+          }
+        }
+
+        const desc = document.getElementById('avatar-sign-name');
+        if (desc) desc.textContent = (char === ' ' ? 'Relaxed (Neutral)' : `Letter ${char}`) + ' • ' + (pose.desc || '');
+      }
+    }
+
+    function startAvatarAnimation() {
+      const inputEl = document.getElementById('avatar-input');
+      const text = (inputEl ? inputEl.value : 'HELLO WORLD').trim().toUpperCase();
+      if (!text) return;
+
+      // Reset any previous animation
+      if (avatarCharTimer) clearTimeout(avatarCharTimer);
+      isAvatarPlaying = true;
+      isAvatarPaused = false;
+
+      const pauseIcon = document.getElementById('avatar-pause-icon');
+      const pauseText = document.getElementById('avatar-pause-text');
+      if (pauseIcon) pauseIcon.textContent = '⏸';
+      if (pauseText) pauseText.textContent = 'Pause';
+
+      // Parse string into supported characters (A-Z and spaces)
+      avatarPlayQueue = [];
+      for (const char of text) {
+        if ((char >= 'A' && char <= 'Z') || char === ' ') {
+          avatarPlayQueue.push(char);
+        }
+      }
+
+      if (avatarPlayQueue.length === 0) return;
+
+      // Render character chips
+      const chipsContainer = document.getElementById('avatar-char-chips');
+      if (chipsContainer) {
+        chipsContainer.innerHTML = avatarPlayQueue.map((c, idx) => `
+          <div class="avatar-char-chip" id="avatar-chip-${idx}" onclick="jumpToAvatarChar(${idx})">
+            ${c === ' ' ? '␣' : c}
+          </div>
+        `).join('');
+      }
+
+      avatarCurrentQueueIndex = 0;
+      playNextAvatarChar();
+    }
+
+    function playNextAvatarChar() {
+      if (!isAvatarPlaying || isAvatarPaused) return;
+
+      if (avatarCurrentQueueIndex >= avatarPlayQueue.length) {
+        // Animation completed
+        isAvatarPlaying = false;
+        const disp = document.getElementById('avatar-letter-display');
+        if (disp) disp.textContent = '✓';
+
+        const pBar = document.getElementById('avatar-progress-bar');
+        if (pBar) pBar.style.width = '100%';
+
+        const desc = document.getElementById('avatar-sign-name');
+        if (desc) desc.textContent = 'Playback Complete • Hand in rest position';
+
+        // Return to neutral hand after 1s
+        setTimeout(() => {
+          showAvatarChar(' ', true);
+        }, 800);
+        return;
+      }
+
+      const idx = avatarCurrentQueueIndex;
+      const char = avatarPlayQueue[idx];
+
+      // Update active chip
+      document.querySelectorAll('.avatar-char-chip').forEach((el, chipIdx) => {
+        el.classList.toggle('active', chipIdx === idx);
+        el.classList.toggle('passed', chipIdx < idx);
+      });
+
+      // Update progress bar
+      const pBar = document.getElementById('avatar-progress-bar');
+      if (pBar) {
+        const pct = Math.round(((idx + 1) / avatarPlayQueue.length) * 100);
+        pBar.style.width = pct + '%';
+      }
+
+      // Show current sign
+      showAvatarChar(char, true);
+
+      avatarCurrentQueueIndex++;
+
+      // Duration inversely proportional to animation speed
+      const baseHold = char === ' ' ? 650 : 900;
+      const delay = Math.round(baseHold / avatarSpeed);
+
+      avatarCharTimer = setTimeout(playNextAvatarChar, delay);
+    }
+
+    function jumpToAvatarChar(idx) {
+      if (idx < 0 || idx >= avatarPlayQueue.length) return;
+      avatarCurrentQueueIndex = idx;
+      showAvatarChar(avatarPlayQueue[idx], true);
+
+      document.querySelectorAll('.avatar-char-chip').forEach((el, chipIdx) => {
+        el.classList.toggle('active', chipIdx === idx);
+        el.classList.toggle('passed', chipIdx < idx);
+      });
+
+      const pBar = document.getElementById('avatar-progress-bar');
+      if (pBar) {
+        const pct = Math.round(((idx + 1) / avatarPlayQueue.length) * 100);
+        pBar.style.width = pct + '%';
+      }
+    }
+
+    function resetAvatarAnimation() {
+      if (avatarCharTimer) clearTimeout(avatarCharTimer);
+      isAvatarPlaying = false;
+      isAvatarPaused = false;
+      avatarCurrentQueueIndex = 0;
+
+      const pauseIcon = document.getElementById('avatar-pause-icon');
+      const pauseText = document.getElementById('avatar-pause-text');
+      if (pauseIcon) pauseIcon.textContent = '⏸';
+      if (pauseText) pauseText.textContent = 'Pause';
+
+      const disp = document.getElementById('avatar-letter-display');
+      if (disp) disp.innerHTML = '<span class="avatar-rest-bar"></span>';
+
+      const pBar = document.getElementById('avatar-progress-bar');
+      if (pBar) pBar.style.width = '15%';
+
+      const desc = document.getElementById('avatar-sign-name');
+      if (desc) desc.textContent = 'Relaxed (Neutral)';
+
+      document.querySelectorAll('.avatar-char-chip').forEach(el => {
+        el.classList.remove('active', 'passed');
+      });
+
+      showAvatarChar(' ', false);
+    }
 
     // ═══ PAGE 4 - History & Analytics ═════════════════════════════════
     let historyData = [];
@@ -1744,5 +2171,11 @@
     refreshHistory();
     refreshStats();
   </script>
+
+  <!-- ═══ FOOTER STATUS BAR ═══════════════════════════════════════════════ -->
+  <footer class="bottom-status-bar">
+    <div>Ready.</div>
+    <div>API: localhost:5000 | System: Online</div>
+  </footer>
 </body>
 </html>

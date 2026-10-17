@@ -383,6 +383,14 @@ def api_process_frame():
             prediction_state["confidence"] = round(conf, 4)
             prediction_state["translation"] = tx
             prediction_state["target_language"] = _code_to_name(translator.target_language)
+    else:
+        if mode == MODE_IDLE or n_hands == 0:
+            with pred_lock:
+                prediction_state["label"] = "—"
+                prediction_state["confidence"] = 0.0
+                prediction_state["translation"] = "—"
+            if translator is not None:
+                translator.reset_last_spoken()
 
     with pred_lock:
         prediction_state["mode"] = mode
@@ -552,6 +560,7 @@ def api_set_language():
     code = config.SUPPORTED_LANGUAGES.get(lang_name, "en")
     if translator is not None:
         translator.target_language = code
+        translator.reset_last_spoken()
     with pred_lock:
         prediction_state["target_language"] = lang_name
         current_lbl = prediction_state.get("label")

@@ -1338,7 +1338,7 @@
         const s = data.state;
 
         // Prediction & Multilingual Translation Display
-        const hasPrediction = s.label && s.label !== '—' && s.label !== '-';
+        const hasPrediction = s.label && s.label !== '—' && s.label !== '-' && s.mode !== 'IDLE';
         const currentLang = document.getElementById('language-select') ? document.getElementById('language-select').value : (s.target_language || 'English');
         const langLabelEl = document.getElementById('pred-lang-label');
         if (langLabelEl) langLabelEl.textContent = currentLang;
@@ -1362,6 +1362,7 @@
           document.getElementById('pred-translation').textContent = translatedText;
 
           // Multilingual TTS speech (browser native voices)
+          // Speaks strictly once per recognized gesture until next gesture is shown
           if (typeof speakTranslation === 'function' && translatedText !== 'Translating…') {
             speakTranslation(translatedText, currentLang);
           }
@@ -1369,6 +1370,8 @@
           document.getElementById('pred-sign').textContent = '-';
           document.getElementById('pred-conf').textContent = '0.0%';
           document.getElementById('pred-translation').textContent = '-';
+          // Reset spoken text when idle or hands down so subsequent gesture speaks once
+          lastSpokenText = '';
         }
 
         // Mode badge
@@ -1508,11 +1511,11 @@
       if (!ttsToggle || !ttsToggle.classList.contains('on')) return;
       if (!text || text === '-' || text === '—' || text === 'Translating…') return;
 
-      const now = Date.now();
-      if (text === lastSpokenText && (now - lastSpokenTime) < 3000) return;
+      // Speak strictly once per gesture — do not repeat until a different gesture is shown
+      if (text === lastSpokenText) return;
 
       lastSpokenText = text;
-      lastSpokenTime = now;
+      lastSpokenTime = Date.now();
 
       try {
         window.speechSynthesis.cancel();
@@ -1535,6 +1538,8 @@
 
     document.getElementById('language-select').addEventListener('change', async (e) => {
       document.getElementById('pred-lang-label').textContent = e.target.value;
+      // Allow speaking the new translation for current sign in selected language
+      lastSpokenText = '';
       await post('/api/set_language', { language: e.target.value });
     });
 
@@ -1543,6 +1548,10 @@
     ttsToggle.addEventListener('click', async () => {
       const isOn = ttsToggle.classList.toggle('on');
       ttsLabel.textContent = isOn ? 'Enabled' : 'Disabled';
+      if (!isOn && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      lastSpokenText = '';
       await post('/api/set_tts', { enabled: isOn });
     });
 

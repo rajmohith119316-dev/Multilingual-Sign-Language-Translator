@@ -150,6 +150,10 @@ class AudioTranslator:
 
     def set_tts_enabled(self, enabled: bool) -> None:
         self._tts_on = enabled
+        if not enabled:
+            with self._tts_lock:
+                self._tts_queue.clear()
+        self.reset_last_spoken()
 
     # ── Translation ────────────────────────────────────────────────────────────
 
@@ -208,14 +212,21 @@ class AudioTranslator:
     def speak(self, text: str) -> None:
         if not self._tts_on:
             return
-        now = time.monotonic()
-        if text == self._last_tts_text and (now - self._last_tts_time) < self._cooldown:
-            return   # debounce
+        if not text or text in ("—", "-", "Translating…"):
+            return
+        # Speak strictly once per gesture — do not repeat until a different gesture is shown
+        if text == self._last_tts_text:
+            return
 
         self._last_tts_text = text
-        self._last_tts_time = now
+        self._last_tts_time = time.monotonic()
         with self._tts_lock:
             self._tts_queue.append(text)
+
+    def reset_last_spoken(self) -> None:
+        """Reset deduplication state so the next gesture (or re-shown gesture) triggers speech once."""
+        self._last_tts_text = ""
+        self._last_logged_label = ""
 
     def _tts_worker(self) -> None:
         try:

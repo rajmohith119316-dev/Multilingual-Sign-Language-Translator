@@ -146,9 +146,10 @@ def login_page():
 
     logger.info("User '%s' logged in (role=%s).", user["username"], user["role"])
 
-    # Redirect by role
-    if user["role"] == "ADMIN":
-        return redirect(url_for("auth.admin_dashboard"))
+    # Redirect to next page or dashboard
+    next_url = request.args.get("next") or request.form.get("next")
+    if next_url and next_url.startswith("/") and not next_url.startswith("//") and next_url != "/":
+        return redirect(next_url)
     return redirect(url_for("auth.dashboard"))
 
 
@@ -225,6 +226,10 @@ def logout():
 def dashboard():
     uid = session["user_id"]
     user = _mgr().get_user_by_id(uid)
+    if not user:
+        session.clear()
+        flash("Your session has expired. Please log in again.", "error")
+        return redirect(url_for("auth.login_page"))
     submissions = _mgr().get_user_submissions(uid)
     activities = _mgr().get_user_activity(uid, limit=20)
     return render_template("dashboard.html", user=user, submissions=submissions, activities=activities)
@@ -235,6 +240,10 @@ def dashboard():
 def my_submissions():
     uid = session["user_id"]
     user = _mgr().get_user_by_id(uid)
+    if not user:
+        session.clear()
+        flash("Your session has expired. Please log in again.", "error")
+        return redirect(url_for("auth.login_page"))
     submissions = _mgr().get_user_submissions(uid)
     return render_template("dashboard.html", user=user, submissions=submissions,
                            activities=_mgr().get_user_activity(uid, limit=20))
@@ -245,6 +254,10 @@ def my_submissions():
 def my_activity():
     uid = session["user_id"]
     user = _mgr().get_user_by_id(uid)
+    if not user:
+        session.clear()
+        flash("Your session has expired. Please log in again.", "error")
+        return redirect(url_for("auth.login_page"))
     activities = _mgr().get_user_activity(uid, limit=100)
     submissions = _mgr().get_user_submissions(uid)
     return render_template("dashboard.html", user=user, submissions=submissions, activities=activities)

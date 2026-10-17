@@ -36,7 +36,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from flask import Flask, Response, jsonify, render_template, request, session
+from flask import Flask, Response, jsonify, render_template, request, session, redirect, url_for
 
 # ── Project imports ──────────────────────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -228,7 +228,7 @@ translator: AudioTranslator = None  # type: ignore[assignment]
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 from src.auth_models import UserManager
-from src.auth_routes import auth_bp, init_auth
+from src.auth_routes import auth_bp, init_auth, login_required
 user_mgr: UserManager = None        # type: ignore[assignment]
 
 # ── Single shared camera ─────────────────────────────────────────────────────
@@ -301,17 +301,36 @@ app.permanent_session_lifetime = timedelta(hours=8)
 app.register_blueprint(auth_bp)
 
 
-# ── Page ─────────────────────────────────────────────────────────────────────
+# ── Pages ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
-    """Serve the multi-page web UI."""
+    """Root entry point:
+    1. If not logged in -> redirect to login page (/auth/login).
+    2. If logged in -> redirect to dashboard (/dashboard).
+    """
+    if "user_id" not in session:
+        return redirect(url_for("auth.login_page"))
+    return redirect(url_for("auth.dashboard"))
+
+
+@app.route("/translator")
+@login_required
+def translator_view():
+    """Serve the recognition, translation, 3D avatar, and teach UI."""
     return render_template(
         "index.html",
         languages=list(config.SUPPORTED_LANGUAGES.keys()),
         num_recordings=config.TEACH_NUM_RECORDINGS,
         sequence_length=config.SEQUENCE_LENGTH,
     )
+
+
+@app.route("/recognize")
+@login_required
+def recognize_redirect():
+    """Convenience alias redirecting to /translator."""
+    return redirect(url_for("translator_view"))
 
 
 # ── Cloud Inference API ──────────────────────────────────────────────────────

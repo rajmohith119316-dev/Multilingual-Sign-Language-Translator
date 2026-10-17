@@ -210,11 +210,15 @@
       padding: 18px 16px;
       text-align: center;
       transition: all var(--transition);
+      cursor: pointer;
+      user-select: none;
+      position: relative;
     }
 
     .stat-card:hover {
       border-color: var(--border-glow);
       box-shadow: var(--shadow-glow);
+      transform: translateY(-3px);
     }
 
     .stat-value {
@@ -684,7 +688,7 @@
     </a>
     <div class="topbar-right">
       <a href="/dashboard" class="topbar-link"> User Dashboard</a>
-      <a href="/" class="topbar-link"> Translator</a>
+      <a href="/translator" class="topbar-link"> Translator</a>
       <a href="/auth/logout" class="btn-logout">Logout</a>
     </div>
   </div>
@@ -693,31 +697,31 @@
     <h1 class="page-title">Admin Dashboard</h1>
     <p class="page-subtitle">Manage users, review submissions, and monitor activity</p>
 
-    <!-- Stats -->
+    <!-- Stats (Clickable shortcuts to respective panels) -->
     <div class="stats-grid">
-      <div class="stat-card">
+      <div class="stat-card" onclick="switchToAdminTab('users')" title="View Users Table">
         <div class="stat-value accent">{{ stats.total_users }}</div>
-        <div class="stat-label">Total Users</div>
+        <div class="stat-label">Total Users &rarr;</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="switchToAdminTab('submissions', 'PENDING')" title="Filter Pending Reviews">
         <div class="stat-value amber">{{ stats.pending_submissions }}</div>
-        <div class="stat-label">Pending Reviews</div>
+        <div class="stat-label">Pending Reviews &rarr;</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="switchToAdminTab('submissions', 'APPROVED')" title="Filter Approved Submissions">
         <div class="stat-value green">{{ stats.approved_submissions }}</div>
-        <div class="stat-label">Approved</div>
+        <div class="stat-label">Approved &rarr;</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="switchToAdminTab('submissions', 'REJECTED')" title="Filter Rejected Submissions">
         <div class="stat-value red">{{ stats.rejected_submissions }}</div>
-        <div class="stat-label">Rejected</div>
+        <div class="stat-label">Rejected &rarr;</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="switchToAdminTab('activity')" title="View Activity Feed">
         <div class="stat-value blue">{{ stats.total_activity }}</div>
-        <div class="stat-label">Activity Events</div>
+        <div class="stat-label">Activity Events &rarr;</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" onclick="switchToAdminTab('models')" title="View Model Versions">
         <div class="stat-value purple">{{ stats.total_models }}</div>
-        <div class="stat-label">Model Versions</div>
+        <div class="stat-label">Model Versions &rarr;</div>
       </div>
     </div>
 
@@ -1126,6 +1130,25 @@
       paginateContainer('submissionsTableBody', 'tr', 10);
       paginateContainer('activityFeed', '.activity-row', 15);
     });
+
+    // ── Switch Tabs & Connect Stats to Fields ──────────────────
+    function switchToAdminTab(tabName, filterStatus) {
+      const tab = document.querySelector(`.admin-tab[data-tab="${tabName}"]`);
+      if (tab) {
+        tab.click();
+        const panel = document.getElementById('panel-' + tabName);
+        if (panel) {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      if (tabName === 'submissions' && filterStatus) {
+        const filterSelect = document.getElementById('submissionStatusFilter');
+        if (filterSelect) {
+          filterSelect.value = filterStatus;
+          filterSubmissions();
+        }
+      }
+    }
 
     // ── Tabs ────────────────────────────────────────────────────
     document.querySelectorAll('.admin-tab').forEach(tab => {

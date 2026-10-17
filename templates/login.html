@@ -388,6 +388,7 @@
 
       <!-- Login Form -->
       <form class="login-form" method="POST" action="/auth/login" id="loginForm">
+        <input type="hidden" name="next" value="{{ request.args.get('next', '') }}" />
         <div class="form-group">
           <label class="form-label" for="login-username">Username / Email</label>
           <input
@@ -415,7 +416,7 @@
               required
             />
             <button type="button" class="password-toggle" onclick="togglePassword('login-password', this)" aria-label="Toggle password visibility">
-              
+              👁
             </button>
           </div>
         </div>
@@ -435,7 +436,7 @@
     </div>
 
     <div class="login-footer">
-      <a href="/">← Back to Home</a>
+      <span style="color: var(--text-muted); font-size: 0.8rem;">Multilingual Sign Language Translator</span>
     </div>
   </div>
 

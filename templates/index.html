@@ -833,10 +833,10 @@
 
   <!-- ═══ NAVIGATION ═══════════════════════════════════════════════════ -->
   <nav class="nav" id="main-nav">
-    <div class="nav-brand">
+    <a href="/dashboard" class="nav-brand" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px;" title="Back to Dashboard">
       <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.5"/><path d="M14 6v6l5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="14" cy="14" r="3" fill="currentColor"/></svg>
-      <span>Multilingual Sign Language Translator v2.0</span>
-    </div>
+      <span>Multilingual Sign Language Translator</span>
+    </a>
 
     <div class="nav-tabs" id="nav-tabs">
       <button class="nav-tab active" data-page="page-recognize" id="tab-recognize">
@@ -857,9 +857,8 @@
       <div class="status-dot" id="status-dot"></div>
       <span class="status-text" id="status-text" style="margin-right: 8px;">IDLE</span>
 
-      
       {% if session.get('user_id') %}
-        <a href="/dashboard" style="color: var(--accent); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-right: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated);"> Dashboard</a>
+        <a href="/dashboard" style="color: var(--accent); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-right: 12px; padding: 6px 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-dim);" title="Return to Dashboard">← Dashboard</a>
         <a href="/auth/logout" style="color: var(--text-secondary); font-size: 0.8rem; text-decoration: none;">Logout</a>
       {% else %}
         <a href="/auth/login" style="color: var(--text-primary); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-right: 12px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-dim);">Login</a>
@@ -1203,13 +1202,29 @@
     const tabs = document.querySelectorAll('.nav-tab');
     const pages = document.querySelectorAll('.page');
 
+    function switchTab(targetName) {
+      if (!targetName) return false;
+      const cleanName = targetName.toLowerCase().replace(/^(page-|tab-)/, '');
+      const tab = Array.from(tabs).find(t => {
+        const p = (t.dataset.page || '').toLowerCase().replace(/^page-/, '');
+        const id = (t.id || '').toLowerCase().replace(/^tab-/, '');
+        return p === cleanName || id === cleanName || t.dataset.page === targetName || t.id === targetName;
+      });
+      if (tab) {
+        tab.click();
+        return true;
+      }
+      return false;
+    }
+
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const target = tab.dataset.page;
         tabs.forEach(t => t.classList.remove('active'));
         pages.forEach(p => p.classList.remove('active'));
         tab.classList.add('active');
-        document.getElementById(target).classList.add('active');
+        const pageEl = document.getElementById(target);
+        if (pageEl) pageEl.classList.add('active');
 
         // Page-specific hooks
         if (target === 'page-history') { refreshHistory(); refreshStats(); }
@@ -1219,6 +1234,24 @@
         }
       });
     });
+
+    // Handle deep-linking to tabs via query params (?tab=teach) or sessionStorage
+    function checkInitialTab() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const storedTab = sessionStorage.getItem('goto_tab');
+      if (tabParam) {
+        switchTab(tabParam);
+      } else if (storedTab) {
+        sessionStorage.removeItem('goto_tab');
+        switchTab(storedTab);
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', checkInitialTab);
+    } else {
+      checkInitialTab();
+    }
 
     // ═══ PAGE 1 - Recognition State Polling ═══════════════════════════
     const SEQUENCE_LENGTH = {{ sequence_length }};

@@ -136,18 +136,43 @@
       width: 52px; height: 52px; border-radius: var(--radius-md);
       display: flex; align-items: center; justify-content: center;
       font-size: 1.6rem;
+      transition: all var(--transition);
     }
-    .action-card h3 { font-size: 0.95rem; font-weight: 700; }
-    .action-card p { font-size: 0.78rem; color: var(--text-muted); }
+    .action-card .action-icon svg {
+      transition: transform var(--transition);
+    }
+    .action-card:hover .action-icon svg {
+      transform: scale(1.1);
+    }
+    .action-card h3 { font-size: 0.98rem; font-weight: 700; }
+    .action-card p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; }
+
+    .action-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.72rem; font-weight: 600;
+      color: var(--text-muted); margin-top: auto;
+      padding: 3px 8px; border-radius: 4px;
+      background: var(--bg-elevated);
+      transition: all var(--transition);
+    }
+    .action-card:hover .action-badge {
+      color: var(--accent);
+      border-color: var(--accent-glow);
+    }
+    .action-card.active-target {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(0, 229, 204, 0.35);
+      background: var(--bg-card-hover);
+    }
 
     .action-card.translator::before { background: linear-gradient(90deg, var(--accent), var(--blue)); }
-    .action-card.translator .action-icon { background: var(--accent-dim); }
-    .action-card.teach::before { background: var(--blue)); }
-    .action-card.teach .action-icon { background: var(--purple-dim); }
+    .action-card.translator .action-icon { background: var(--accent-dim); color: var(--accent); }
+    .action-card.teach::before { background: var(--purple); }
+    .action-card.teach .action-icon { background: var(--purple-dim); color: var(--purple); }
     .action-card.submissions::before { background: linear-gradient(90deg, var(--amber), var(--green)); }
-    .action-card.submissions .action-icon { background: rgba(245,158,11,0.15); }
+    .action-card.submissions .action-icon { background: rgba(245,158,11,0.15); color: var(--amber); }
     .action-card.activity::before { background: linear-gradient(90deg, var(--blue), var(--accent)); }
-    .action-card.activity .action-icon { background: rgba(56,189,248,0.15); }
+    .action-card.activity .action-icon { background: rgba(56,189,248,0.15); color: var(--blue); }
 
     /* Sections */
     .section-header {
@@ -159,6 +184,107 @@
       background: linear-gradient(135deg, var(--accent), var(--purple));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
+    }
+
+    /* Target Fields & Pulse animations */
+    #submissions-section, #activity-section {
+      scroll-margin-top: 84px;
+    }
+    @keyframes fieldGlowPulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(0, 229, 204, 0.7);
+        border-color: var(--accent);
+        transform: translateY(-2px);
+      }
+      50% {
+        box-shadow: 0 0 32px 6px rgba(0, 229, 204, 0.45);
+        border-color: var(--accent);
+        transform: translateY(-3px);
+      }
+      100% {
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        border-color: var(--border);
+        transform: translateY(0);
+      }
+    }
+    @keyframes fieldGlowPulseBlue {
+      0% {
+        box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
+        border-color: var(--blue);
+        transform: translateY(-2px);
+      }
+      50% {
+        box-shadow: 0 0 32px 6px rgba(56, 189, 248, 0.45);
+        border-color: var(--blue);
+        transform: translateY(-3px);
+      }
+      100% {
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+        border-color: var(--border);
+        transform: translateY(0);
+      }
+    }
+    .field-highlight-pulse {
+      animation: fieldGlowPulse 1.8s ease-out forwards;
+    }
+    .field-highlight-pulse-blue {
+      animation: fieldGlowPulseBlue 1.8s ease-out forwards;
+    }
+
+    /* View Filter Pills Bar */
+    .view-filter-bar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .view-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: var(--radius-md);
+      background: var(--bg-card); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; transition: all var(--transition);
+    }
+    .view-pill svg { width: 15px; height: 15px; }
+    .view-pill:hover {
+      color: var(--text-primary); border-color: var(--purple);
+      background: var(--bg-card-hover);
+    }
+    .view-pill.active {
+      color: var(--bg-primary); background: var(--accent);
+      border-color: var(--accent); font-weight: 700;
+    }
+    .pill-count {
+      padding: 1px 7px; border-radius: 10px; font-size: 0.72rem;
+      background: rgba(0, 0, 0, 0.2); font-weight: 700;
+    }
+    .view-pill:not(.active) .pill-count {
+      background: var(--bg-elevated); color: var(--text-secondary);
+    }
+
+    .count-badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 10px; border-radius: 12px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 0.75rem; font-weight: 600;
+    }
+    .btn-sm-action {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 4px;
+      background: var(--accent-dim); border: 1px solid var(--accent-glow);
+      color: var(--accent); font-size: 0.75rem; font-weight: 600;
+      text-decoration: none; transition: all var(--transition);
+    }
+    .btn-sm-action:hover {
+      background: var(--accent); color: var(--bg-primary);
+    }
+    .btn-more {
+      width: 100%; margin-top: 12px; padding: 10px;
+      border: 1px dashed var(--border); border-radius: var(--radius-md);
+      background: var(--bg-elevated); color: var(--accent);
+      font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      text-align: center; transition: all var(--transition);
+    }
+    .btn-more:hover {
+      border-color: var(--accent); background: var(--accent-dim);
     }
 
     /* Cards section */
@@ -219,7 +345,12 @@
 
     .grid-2col {
       display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+      transition: all var(--transition);
     }
+    .grid-2col.show-submissions-only #activity-section { display: none; }
+    .grid-2col.show-submissions-only #submissions-section { grid-column: span 2; }
+    .grid-2col.show-activity-only #submissions-section { display: none; }
+    .grid-2col.show-activity-only #activity-section { grid-column: span 2; }
 
     /* Admin link */
     .admin-link {
@@ -233,6 +364,8 @@
 
     @media (max-width: 768px) {
       .grid-2col { grid-template-columns: 1fr; }
+      .grid-2col.show-submissions-only #submissions-section,
+      .grid-2col.show-activity-only #activity-section { grid-column: span 1; }
       .actions-grid { grid-template-columns: 1fr 1fr; }
       .welcome-section h1 { font-size: 1.4rem; }
     }
@@ -264,11 +397,11 @@
     </a>
     <div class="topbar-right">
       {% if user.role == 'ADMIN' %}
-        <a href="/admin" class="admin-link"> Admin Dashboard</a>
+        <a href="/admin" class="admin-link">⚙️ Admin Dashboard</a>
       {% endif %}
       <div class="topbar-user">
-        <div class="user-avatar">{{ user.full_name[0] | upper }}</div>
-        <span>{{ user.full_name }}</span>
+        <div class="user-avatar">{{ (user.full_name[0] if user and user.full_name else 'U') | upper }}</div>
+        <span>{{ user.full_name if user and user.full_name else 'User' }}</span>
       </div>
       <a href="/auth/logout" class="btn-logout">Logout</a>
     </div>
@@ -277,86 +410,183 @@
   <div class="page-wrap">
     <!-- Welcome -->
     <div class="welcome-section">
-      <h1>Welcome, {{ user.full_name.split(' ')[0] }}</h1>
+      <h1>Welcome, {{ user.full_name.split(' ')[0] if user and user.full_name else 'User' }}</h1>
       <p>Multilingual Sign Language Translator - Your Dashboard</p>
     </div>
 
-    <!-- Quick Actions -->
+    <!-- Quick Actions (Attached to fields & routes) -->
     <div class="actions-grid">
-      <a href="/" class="action-card translator" id="action-translator">
-        <div class="action-icon"></div>
+      <!-- 1. Translator Field / Mode -->
+      <a href="/translator" class="action-card translator" id="action-translator" title="Launch Real-time Translator">
+        <div class="action-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 8l6 6"></path>
+            <path d="M4 14h7"></path>
+            <path d="M2 5h12"></path>
+            <path d="M7 2h1"></path>
+            <path d="M22 22l-5-10-5 10"></path>
+            <path d="M14 18h6"></path>
+          </svg>
+        </div>
         <h3>Translator</h3>
         <p>Real-time sign language recognition</p>
+        <span class="action-badge">Launch App &rarr;</span>
       </a>
-      <a href="/" class="action-card teach" id="action-teach"
-         onclick="sessionStorage.setItem('goto_tab','teach')">
-        <div class="action-icon"></div>
+
+      <!-- 2. Teach Mode -->
+      <a href="/translator?tab=teach" class="action-card teach" id="action-teach"
+         onclick="sessionStorage.setItem('goto_tab','teach')" title="Open Teach Custom Signs">
+        <div class="action-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+          </svg>
+        </div>
         <h3>Teach</h3>
         <p>Teach custom signs to the model</p>
+        <span class="action-badge">Teach Signs &rarr;</span>
       </a>
-      <a href="/dashboard/submissions" class="action-card submissions" id="action-submissions">
-        <div class="action-icon"></div>
+
+      <!-- 3. Connected to My Training Submissions Field Below -->
+      <a href="#submissions-section" class="action-card submissions" id="action-submissions"
+         onclick="focusField('submissions-section', 'submissions', event)" title="Jump to My Training Submissions">
+        <div class="action-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <path d="M9 15l2 2 4-4"></path>
+          </svg>
+        </div>
         <h3>My Submissions</h3>
         <p>View your training submissions</p>
+        <span class="action-badge">View {{ submissions | length }} Submissions &darr;</span>
       </a>
-      <a href="/dashboard/activity" class="action-card activity" id="action-activity">
-        <div class="action-icon"></div>
+
+      <!-- 4. Connected to Recent Activity Field Below -->
+      <a href="#activity-section" class="action-card activity" id="action-activity"
+         onclick="focusField('activity-section', 'activity', event)" title="Jump to Recent Activity">
+        <div class="action-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </div>
         <h3>My Activity</h3>
         <p>Your recent application activity</p>
+        <span class="action-badge">View {{ activities | length }} Logs &darr;</span>
       </a>
     </div>
 
-    <!-- Two-column layout -->
-    <div class="grid-2col">
-      <!-- Recent Submissions -->
-      <div class="card">
+    <!-- View Switcher Tabs -->
+    <div class="view-filter-bar">
+      <button class="view-pill active" id="pill-all" onclick="setViewMode('all')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        <span>All Details</span>
+      </button>
+      <button class="view-pill" id="pill-submissions" onclick="focusField('submissions-section', 'submissions', event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <path d="M9 15l2 2 4-4"></path>
+        </svg>
+        <span>My Training Submissions</span>
+        <span class="pill-count">{{ submissions | length }}</span>
+      </button>
+      <button class="view-pill" id="pill-activity" onclick="focusField('activity-section', 'activity', event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+        <span>Recent Activity</span>
+        <span class="pill-count">{{ activities | length }}</span>
+      </button>
+    </div>
+
+    <!-- Connected Target Fields Grid -->
+    <div class="grid-2col" id="dashboard-grid">
+      <!-- ── Field 1: Recent Submissions ─────────────────────────── -->
+      <div class="card" id="submissions-section">
         <div class="section-header">
           <h2>My Training Submissions</h2>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="count-badge" id="submissions-count-badge">{{ submissions | length }} total</span>
+            <a href="/translator?tab=teach" class="btn-sm-action" title="Teach new sign">+ Teach Sign</a>
+          </div>
         </div>
         {% if submissions %}
-          {% for s in submissions[:6] %}
-            <div class="submission-item">
-              <div>
-                <div class="submission-label">{{ s.gesture_label }}</div>
-                <div class="submission-meta">
-                  {{ s.gesture_type }} · {{ s.sample_count }} samples · {{ s.submitted_at.strftime('%d-%m-%Y %H:%M') if s.submitted_at else 'N/A' }}
+          <div id="submissions-list">
+            {% for s in submissions %}
+              <div class="submission-item {% if loop.index > 6 %}extra-submission{% endif %}" {% if loop.index > 6 %}style="display: none;"{% endif %}>
+                <div>
+                  <div class="submission-label">{{ s.gesture_label }}</div>
+                  <div class="submission-meta">
+                    {{ s.gesture_type }} · {{ s.sample_count }} samples · {{ s.submitted_at.strftime('%d-%m-%Y %H:%M') if s.submitted_at else 'N/A' }}
+                  </div>
+                  {% if s.status == 'REJECTED' and s.rejection_reason %}
+                    <div class="rejection-reason">Reason: {{ s.rejection_reason }}</div>
+                  {% endif %}
                 </div>
-                {% if s.status == 'REJECTED' and s.rejection_reason %}
-                  <div class="rejection-reason">Reason: {{ s.rejection_reason }}</div>
-                {% endif %}
+                <span class="badge badge-{{ s.status | lower }}">{{ s.status }}</span>
               </div>
-              <span class="badge badge-{{ s.status | lower }}">{{ s.status }}</span>
-            </div>
-          {% endfor %}
+            {% endfor %}
+          </div>
+          {% if submissions | length > 6 %}
+            <button id="btn-toggle-submissions" class="btn-more" onclick="toggleMoreSubmissions()">
+              Show all {{ submissions | length }} submissions &darr;
+            </button>
+          {% endif %}
         {% else %}
           <div class="empty-state">
-            <div class="empty-icon"></div>
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5; margin: 0 auto 12px auto; display: block;">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+            </div>
             <p>No submissions yet. Start teaching new signs!</p>
+            <a href="/translator?tab=teach" class="btn-sm-action" style="margin-top: 12px; display: inline-flex;">+ Teach New Sign</a>
           </div>
         {% endif %}
       </div>
 
-      <!-- Recent Activity -->
-      <div class="card">
+      <!-- ── Field 2: Recent Activity ────────────────────────────── -->
+      <div class="card" id="activity-section">
         <div class="section-header">
           <h2>Recent Activity</h2>
+          <span class="count-badge" id="activity-count-badge">{{ activities | length }} logged</span>
         </div>
         {% if activities %}
-          {% for a in activities[:10] %}
-            <div class="activity-item">
-              <div class="activity-time">{{ a.created_at.strftime('%H:%M') if a.created_at else '' }}</div>
-              <div>
-                <div class="activity-type">{{ a.activity_type }}</div>
-                <div class="activity-detail">
-                  {% if a.page %}{{ a.page }}{% endif %}
-                  {% if a.action %} · {{ a.action }}{% endif %}
+          <div id="activity-list">
+            {% for a in activities %}
+              <div class="activity-item {% if loop.index > 10 %}extra-activity{% endif %}" {% if loop.index > 10 %}style="display: none;"{% endif %}>
+                <div class="activity-time">{{ a.created_at.strftime('%H:%M') if a.created_at else '' }}</div>
+                <div>
+                  <div class="activity-type">{{ a.activity_type }}</div>
+                  <div class="activity-detail">
+                    {% if a.page %}{{ a.page }}{% endif %}
+                    {% if a.action %} · {{ a.action }}{% endif %}
+                  </div>
                 </div>
               </div>
-            </div>
-          {% endfor %}
+            {% endfor %}
+          </div>
+          {% if activities | length > 10 %}
+            <button id="btn-toggle-activity" class="btn-more" onclick="toggleMoreActivity()">
+              Show all {{ activities | length }} activities &darr;
+            </button>
+          {% endif %}
         {% else %}
           <div class="empty-state">
-            <div class="empty-icon"></div>
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5; margin: 0 auto 12px auto; display: block;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
             <p>No activity recorded yet.</p>
           </div>
         {% endif %}
@@ -365,6 +595,115 @@
   </div>
 
   <script>
+    // Direct button-to-field connection & smooth scrolling
+    function focusField(fieldId, viewMode, evt) {
+      if (evt) evt.preventDefault();
+
+      // Highlight active button indicator
+      document.querySelectorAll('.action-card').forEach(c => c.classList.remove('active-target'));
+      const activeCard = document.getElementById('action-' + viewMode);
+      if (activeCard) activeCard.classList.add('active-target');
+
+      // Set view tab state
+      if (viewMode) {
+        setViewMode(viewMode);
+      }
+
+      // Smooth scroll to the field
+      const target = document.getElementById(fieldId);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Trigger dynamic glow pulse on the connected target field
+        target.classList.remove('field-highlight-pulse', 'field-highlight-pulse-blue');
+        void target.offsetWidth; // Force CSS reflow
+        if (fieldId === 'activity-section') {
+          target.classList.add('field-highlight-pulse-blue');
+        } else {
+          target.classList.add('field-highlight-pulse');
+        }
+      }
+
+      // If user clicked submissions or activity directly, expand items
+      if (viewMode === 'submissions') {
+        expandSubmissions();
+      } else if (viewMode === 'activity') {
+        expandActivity();
+      }
+
+      if (history.replaceState) {
+        history.replaceState(null, null, '#' + fieldId);
+      }
+    }
+
+    function setViewMode(mode) {
+      const grid = document.getElementById('dashboard-grid');
+      const pills = document.querySelectorAll('.view-pill');
+      pills.forEach(p => p.classList.remove('active'));
+
+      const activePill = document.getElementById('pill-' + mode);
+      if (activePill) activePill.classList.add('active');
+
+      if (!grid) return;
+      grid.classList.remove('show-submissions-only', 'show-activity-only');
+      if (mode === 'submissions') {
+        grid.classList.add('show-submissions-only');
+      } else if (mode === 'activity') {
+        grid.classList.add('show-activity-only');
+      }
+    }
+
+    let submissionsExpanded = false;
+    function expandSubmissions() {
+      const extras = document.querySelectorAll('.extra-submission');
+      extras.forEach(el => el.style.display = 'flex');
+      const btn = document.getElementById('btn-toggle-submissions');
+      if (btn) btn.innerHTML = 'Show less &uarr;';
+      submissionsExpanded = true;
+    }
+    function toggleMoreSubmissions() {
+      submissionsExpanded = !submissionsExpanded;
+      const extras = document.querySelectorAll('.extra-submission');
+      extras.forEach(el => el.style.display = submissionsExpanded ? 'flex' : 'none');
+      const btn = document.getElementById('btn-toggle-submissions');
+      if (btn) {
+        btn.innerHTML = submissionsExpanded
+          ? 'Show less &uarr;'
+          : 'Show all {{ submissions | length }} submissions &darr;';
+      }
+    }
+
+    let activityExpanded = false;
+    function expandActivity() {
+      const extras = document.querySelectorAll('.extra-activity');
+      extras.forEach(el => el.style.display = 'flex');
+      const btn = document.getElementById('btn-toggle-activity');
+      if (btn) btn.innerHTML = 'Show less &uarr;';
+      activityExpanded = true;
+    }
+    function toggleMoreActivity() {
+      activityExpanded = !activityExpanded;
+      const extras = document.querySelectorAll('.extra-activity');
+      extras.forEach(el => el.style.display = activityExpanded ? 'flex' : 'none');
+      const btn = document.getElementById('btn-toggle-activity');
+      if (btn) {
+        btn.innerHTML = activityExpanded
+          ? 'Show less &uarr;'
+          : 'Show all {{ activities | length }} activities &darr;';
+      }
+    }
+
+    // Handle deep-linking from /dashboard/submissions or /dashboard/activity or #anchors
+    window.addEventListener('DOMContentLoaded', () => {
+      const hash = window.location.hash;
+      const path = window.location.pathname;
+      if (hash === '#submissions-section' || path.includes('/submissions')) {
+        setTimeout(() => focusField('submissions-section', 'submissions'), 100);
+      } else if (hash === '#activity-section' || path.includes('/activity')) {
+        setTimeout(() => focusField('activity-section', 'activity'), 100);
+      }
+    });
+
     // Track dashboard page view
     fetch('/api/track_activity', {
       method: 'POST',

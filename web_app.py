@@ -583,6 +583,22 @@ def api_set_tts():
     return jsonify({"ok": True, "tts_enabled": enabled})
 
 
+@app.route("/api/tts")
+def api_tts():
+    """Stream multilingual TTS MP3 audio for given text and language code (kn, hi, ta, te, ml, en, fr, de, es)."""
+    text = request.args.get("text", "").strip()
+    lang = request.args.get("lang", "en").strip().lower()
+    if not text or text in ("—", "-", "Translating…"):
+        return Response(b"", status=400)
+
+    if translator is not None:
+        audio = translator.get_tts_audio(text, lang)
+        if audio:
+            return Response(audio, mimetype="audio/mpeg")
+
+    return Response(b"", status=404)
+
+
 @app.route("/api/set_mode", methods=["POST"])
 def api_set_mode():
     """Set MoE router mode preference: AUTO | ALPHABET | WORD."""

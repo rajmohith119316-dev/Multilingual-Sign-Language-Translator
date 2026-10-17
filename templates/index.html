@@ -921,9 +921,10 @@
             <div class="prediction-conf">
               Confidence: <span class="value" id="pred-conf">0.0%</span>
             </div>
-            <div class="translation-box">
+            <div class="translation-box" style="position: relative;">
               <div class="translation-text" id="pred-translation">-</div>
               <div class="translation-lang" id="pred-lang-label">English</div>
+              <button type="button" class="btn-tts-replay" id="btn-replay-tts" onclick="replayCurrentTranslation()" title="Replay voice pronunciation" style="position: absolute; right: 12px; top: 12px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; border-radius: 6px; padding: 4px 10px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px;" onmouseover="this.style.background='rgba(56, 189, 248, 0.3)'" onmouseout="this.style.background='rgba(56, 189, 248, 0.15)'"><span>🔊</span> Speak</button>
             </div>
           </div>
 
@@ -1493,6 +1494,20 @@
     // ═══ PAGE 1 - Controls & Multilingual Audio TTS ═════════════════
     let lastSpokenText = '';
     let lastSpokenTime = 0;
+    let currentTtsAudio = null;
+
+    const LANG_CODE_MAP = {
+      'English': 'en',
+      'Kannada': 'kn',
+      'Hindi': 'hi',
+      'Tamil': 'ta',
+      'Telugu': 'te',
+      'Malayalam': 'ml',
+      'French': 'fr',
+      'German': 'de',
+      'Spanish': 'es'
+    };
+
     const LANG_SPEECH_MAP = {
       'English': 'en-US',
       'Kannada': 'kn-IN',
@@ -1505,18 +1520,44 @@
       'Spanish': 'es-ES'
     };
 
-    function speakTranslation(text, langName) {
-      if (!window.speechSynthesis) return;
+    function speakTranslation(text, langName, forceReplay = false) {
       const ttsToggle = document.getElementById('tts-toggle');
       if (!ttsToggle || !ttsToggle.classList.contains('on')) return;
       if (!text || text === '-' || text === '—' || text === 'Translating…') return;
 
       // Speak strictly once per gesture — do not repeat until a different gesture is shown
-      if (text === lastSpokenText) return;
+      if (!forceReplay && text === lastSpokenText) return;
 
       lastSpokenText = text;
       lastSpokenTime = Date.now();
 
+      const langCode = LANG_CODE_MAP[langName] || 'en';
+
+      // Stop any previously playing audio or speech
+      if (currentTtsAudio) {
+        currentTtsAudio.pause();
+        currentTtsAudio.currentTime = 0;
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+
+      // Priority 1: High-definition native voice via /api/tts (supports Kannada, Tamil, Hindi, Telugu, Malayalam, etc.)
+      const ttsUrl = '/api/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(langCode);
+      const audio = new Audio(ttsUrl);
+      currentTtsAudio = audio;
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.debug('Direct audio playback error, falling back to Web Speech API:', err);
+          fallbackSpeechSynthesis(text, langName);
+        });
+      }
+    }
+
+    function fallbackSpeechSynthesis(text, langName) {
+      if (!window.speechSynthesis) return;
       try {
         window.speechSynthesis.cancel();
         const utter = new SpeechSynthesisUtterance(text);
@@ -1532,12 +1573,28 @@
       }
     }
 
+    function replayCurrentTranslation() {
+      const transEl = document.getElementById('pred-translation');
+      const langEl = document.getElementById('language-select');
+      const currentLang = langEl ? langEl.value : 'English';
+      if (transEl && transEl.textContent && transEl.textContent !== '-' && transEl.textContent !== 'Translating…') {
+        speakTranslation(transEl.textContent, currentLang, true);
+      }
+    }
+
     if (window.speechSynthesis) {
       window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
     }
 
     document.getElementById('language-select').addEventListener('change', async (e) => {
       document.getElementById('pred-lang-label').textContent = e.target.value;
+      if (currentTtsAudio) {
+        currentTtsAudio.pause();
+        currentTtsAudio.currentTime = 0;
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       // Allow speaking the new translation for current sign in selected language
       lastSpokenText = '';
       await post('/api/set_language', { language: e.target.value });
@@ -1548,8 +1605,14 @@
     ttsToggle.addEventListener('click', async () => {
       const isOn = ttsToggle.classList.toggle('on');
       ttsLabel.textContent = isOn ? 'Enabled' : 'Disabled';
-      if (!isOn && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
+      if (!isOn) {
+        if (currentTtsAudio) {
+          currentTtsAudio.pause();
+          currentTtsAudio.currentTime = 0;
+        }
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
       }
       lastSpokenText = '';
       await post('/api/set_tts', { enabled: isOn });

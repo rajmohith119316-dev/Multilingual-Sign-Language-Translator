@@ -220,13 +220,59 @@ class AudioTranslator:
 
         self._last_tts_text = text
         self._last_tts_time = time.monotonic()
-        with self._tts_lock:
-            self._tts_queue.append(text)
+        # Only queue to local SAPI5 pyttsx3 engine if text is ASCII (SAPI5 only has English voices on Windows)
+        try:
+            text.encode("ascii")
+            with self._tts_lock:
+                self._tts_queue.append(text)
+        except UnicodeEncodeError:
+            # Non-English/Unicode text is synthesized via high-fidelity get_tts_audio /api/tts endpoint
+            pass
 
     def reset_last_spoken(self) -> None:
         """Reset deduplication state so the next gesture (or re-shown gesture) triggers speech once."""
         self._last_tts_text = ""
         self._last_logged_label = ""
+
+    def get_tts_audio(self, text: str, lang_code: str) -> Optional[bytes]:
+        """Fetch or return cached MP3 audio bytes for multilingual speech synthesis (Indic & European)."""
+        if not text or text in ("—", "-", "Translating…"):
+            return None
+        clean_text = text.strip()
+        clean_lang = (lang_code or "en").strip().lower()
+        cache_key = (clean_text, clean_lang)
+
+        if not hasattr(self, "_audio_cache"):
+            self._audio_cache: dict[tuple[str, str], bytes] = {}
+
+        if cache_key in self._audio_cache:
+            return self._audio_cache[cache_key]
+
+        import urllib.request
+        import urllib.parse
+        try:
+            url = (
+                f"https://translate.google.com/translate_tts?ie=UTF-8"
+                f"&tl={urllib.parse.quote(clean_lang)}"
+                f"&client=tw-ob"
+                f"&q={urllib.parse.quote(clean_text)}"
+            )
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Referer": "https://translate.google.com/",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=4.0) as resp:
+                audio_bytes = resp.read()
+                if len(audio_bytes) > 200:
+                    self._audio_cache[cache_key] = audio_bytes
+                    return audio_bytes
+        except Exception as exc:
+            logger.warning("TTS audio fetch failed for '%s' (%s): %s", clean_text, clean_lang, exc)
+
+        return None
 
     def _tts_worker(self) -> None:
         try:

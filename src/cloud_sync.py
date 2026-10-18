@@ -1,15 +1,24 @@
+"""
+src/cloud_sync.py — Model Versioning, Cloud Sync & Background Retraining
+Supports MongoDB Atlas (primary) and PostgreSQL (fallback).
+Optimized to avoid unnecessary network transfer: polls metadata first and
+downloads binaries only when an updated active version tag is detected.
+"""
+
+import hashlib
 import json
 import logging
 import os
+import shutil
 import sys
 import threading
 import time
 from pathlib import Path
+from typing import Optional, Dict, Any, List
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 from src.auth_models import UserManager
-import psycopg2.extras
 
 logger = logging.getLogger("cloud_sync")
 
@@ -25,7 +34,8 @@ def _get_local_sync_versions() -> dict:
         try:
             with open(_SYNC_STATE_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Could not read cloud_sync_state: %s", exc)
             return {}
     return {}
 
@@ -42,6 +52,17 @@ def _save_local_sync_version(model_type: str, version_tag: str) -> None:
         logger.warning("Could not persist cloud_sync_state: %s", exc)
 
 
+def _file_sha256(path: Path) -> str:
+    """Calculate SHA-256 hash of a file."""
+    if not path.exists():
+        return ""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(65536):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def upload_model_to_db(
     model_type: str,
     model_path: Path,
@@ -50,10 +71,11 @@ def upload_model_to_db(
     accuracy: float = None,
     parameters: dict = None,
     notes: str = None,
+    created_by: int = None,
 ) -> bool:
     """
-    Upload trained model and encoder binary data to Neon DB model_versions table and set as active.
-    Deactivates any previous active version of this model_type.
+    Upload trained model and encoder binary data to database model_versions collection/table
+    and set as active. Deactivates previous active versions of this model_type.
     """
     if not model_path.exists():
         logger.error("Model path %s does not exist for upload.", model_path)
@@ -68,91 +90,108 @@ def upload_model_to_db(
             with open(encoder_path, "rb") as f:
                 encoder_bytes = f.read()
 
+        params = dict(parameters or {})
+        params["model_sha256"] = hashlib.sha256(model_bytes).hexdigest()
+        params["model_size_bytes"] = len(model_bytes)
+        if encoder_bytes:
+            params["encoder_sha256"] = hashlib.sha256(encoder_bytes).hexdigest()
+            params["encoder_size_bytes"] = len(encoder_bytes)
+
         mgr = UserManager()
-        sql_insert = """
-            INSERT INTO model_versions (
-                version_tag, model_type, model_path, model_data, encoder_data,
-                accuracy, parameters, is_active, notes
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, %s)
-        """
-        params_json = psycopg2.extras.Json(parameters) if parameters is not None else None
-
-        with mgr._connect() as conn:
-            with conn.cursor() as cur:
-                # Deactivate older active versions of this model type
-                cur.execute(
-                    "UPDATE model_versions SET is_active = FALSE WHERE model_type = %s",
-                    (model_type,),
-                )
-                cur.execute(
-                    sql_insert,
-                    (
-                        version_tag,
-                        model_type,
-                        str(model_path),
-                        model_bytes,
-                        encoder_bytes,
-                        accuracy,
-                        params_json,
-                        notes,
-                    ),
-                )
-            conn.commit()
-
-        # Update local sync state tracker so local doesn't re-download what it just uploaded
-        _save_local_sync_version(model_type, version_tag)
-
-        logger.info(
-            "Successfully uploaded %s model to Neon DB (version_tag=%s, size=%d bytes)",
-            model_type, version_tag, len(model_bytes),
+        success = mgr.save_model_version(
+            version_tag=version_tag,
+            model_type=model_type,
+            model_path=str(model_path),
+            accuracy=accuracy,
+            parameters=params,
+            notes=notes,
+            model_data=model_bytes,
+            encoder_data=encoder_bytes,
+            is_active=True,
+            created_by=created_by,
         )
-        return True
+
+        if success:
+            _save_local_sync_version(model_type, version_tag)
+            logger.info(
+                "Successfully uploaded %s model (version_tag=%s, size=%d bytes) to database.",
+                model_type, version_tag, len(model_bytes),
+            )
+            return True
+        else:
+            logger.error("Database save_model_version returned False for %s.", version_tag)
+            return False
     except Exception as exc:
-        logger.error("Failed to upload %s model to Neon DB: %s", model_type, exc, exc_info=True)
+        logger.error("Failed to upload %s model to database: %s", model_type, exc, exc_info=True)
         return False
 
 
 def sync_active_models_from_db(predictor=None, force: bool = False) -> dict:
     """
-    Check Neon Cloud DB for active model versions.
-    If a new active model version exists or force=True or local files are missing,
-    download the model and encoder, write to disk, update tracking, and hot-reload.
+    Check database for active model versions.
+    Optimized bandwidth: queries metadata without binary blobs first.
+    Only downloads binary data if local version differs or local files are missing.
+    Maintains a .bak rollback copy in case download is corrupted.
     """
     with _sync_lock:
         result = {"synced": False, "updated": [], "active_tags": {}}
         try:
             mgr = UserManager()
-            versions = mgr.get_model_versions(include_data=True)
+            # Fetch metadata only to preserve network allowance
+            meta_versions = mgr.get_model_versions(include_data=False)
         except Exception as exc:
-            logger.error("Failed to connect or query model_versions from DB: %s", exc)
+            logger.warning("Could not query model_versions metadata: %s", exc)
             return result
 
         local_state = _get_local_sync_versions()
         updated_any = False
 
-        for v in versions:
+        for v in meta_versions:
             if not v.get("is_active"):
                 continue
 
             mtype = v.get("model_type")
             vtag = v.get("version_tag")
-            result["active_tags"][mtype] = vtag
-
-            mdata = v.get("model_data")
-            edata = v.get("encoder_data")
-            if not mdata:
+            if not mtype or not vtag:
                 continue
+
+            result["active_tags"][mtype] = vtag
 
             target_model_path = config.ALPHABET_MODEL_PATH if mtype == "Alphabet" else config.WORD_MODEL_PATH
             target_encoder_path = config.ALPHABET_ENCODER_PATH if mtype == "Alphabet" else config.WORD_ENCODER_PATH
 
             local_vtag = local_state.get(mtype)
-            files_exist = target_model_path.exists() and (target_encoder_path.exists() if edata else True)
+            files_exist = target_model_path.exists() and target_encoder_path.exists()
 
             needs_download = force or (local_vtag != vtag) or (not files_exist)
 
-            if needs_download:
+            if not needs_download:
+                logger.debug("%s model is already up to date with cloud version %s.", mtype, vtag)
+                continue
+
+            logger.info("New or missing active version detected for %s: %s (local=%s). Downloading...",
+                        mtype, vtag, local_vtag)
+
+            # Fetch binary data for this specific model type
+            try:
+                full_v = mgr.get_active_model_version(mtype, include_data=True)
+                if not full_v or not full_v.get("model_data"):
+                    logger.warning("No binary data available in DB for %s (tag=%s).", mtype, vtag)
+                    continue
+
+                mdata = full_v["model_data"]
+                edata = full_v.get("encoder_data")
+
+                # Backup existing files for rollback
+                bak_model = target_model_path.with_suffix(".h5.bak")
+                bak_encoder = target_encoder_path.with_suffix(".pkl.bak")
+
+                if target_model_path.exists():
+                    shutil.copy2(target_model_path, bak_model)
+                if target_encoder_path.exists():
+                    shutil.copy2(target_encoder_path, bak_encoder)
+
+                # Write downloaded bytes
                 target_model_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(target_model_path, "wb") as f:
                     f.write(mdata)
@@ -160,16 +199,25 @@ def sync_active_models_from_db(predictor=None, force: bool = False) -> dict:
                     with open(target_encoder_path, "wb") as f:
                         f.write(edata)
 
+                # Integrity validation: check non-empty
+                if target_model_path.stat().st_size == 0:
+                    raise IOError(f"Downloaded model file for {mtype} is empty!")
+
                 _save_local_sync_version(mtype, vtag)
                 updated_any = True
                 result["updated"].append(mtype)
-                logger.info("Downloaded and synced %s model (version_tag=%s) from Neon DB.", mtype, vtag)
-            else:
-                logger.debug("%s model is already up to date with cloud version %s.", mtype, vtag)
+                logger.info("Downloaded and synced %s model (version_tag=%s, size=%d bytes).",
+                            mtype, vtag, len(mdata))
+
+            except Exception as dl_err:
+                logger.error("Failed downloading/activating %s model: %s. Rolling back.", mtype, dl_err)
+                if bak_model.exists():
+                    shutil.copy2(bak_model, target_model_path)
+                if bak_encoder.exists():
+                    shutil.copy2(bak_encoder, target_encoder_path)
 
         if updated_any:
             result["synced"] = True
-            # Hot-reload predictor if provided or accessible
             p = predictor
             if p is None:
                 try:
@@ -181,7 +229,7 @@ def sync_active_models_from_db(predictor=None, force: bool = False) -> dict:
             if p is not None:
                 try:
                     p.hot_reload()
-                    logger.info("Successfully hot-reloaded predictor with synced cloud models.")
+                    logger.info("Successfully hot-reloaded predictor with synced models.")
                 except Exception as hr_err:
                     logger.error("Predictor hot_reload failed: %s", hr_err)
 
@@ -190,8 +238,8 @@ def sync_active_models_from_db(predictor=None, force: bool = False) -> dict:
 
 def start_cloud_sync_poller(predictor=None, interval_seconds: int = 45):
     """
-    Launch a background daemon thread that periodically checks Neon DB for new models
-    trained by other devices/systems.
+    Launch a background daemon thread that periodically checks for new active models
+    trained by other instances.
     """
     global _sync_poller_thread, _sync_poller_running
     if _sync_poller_running:
@@ -200,7 +248,7 @@ def start_cloud_sync_poller(predictor=None, interval_seconds: int = 45):
     def _poll_worker():
         global _sync_poller_running
         _sync_poller_running = True
-        logger.info("Neon cloud model sync poller started (interval=%ds).", interval_seconds)
+        logger.info("Cloud model sync poller started (interval=%ds).", interval_seconds)
         while _sync_poller_running:
             time.sleep(interval_seconds)
             try:
@@ -215,23 +263,15 @@ def start_cloud_sync_poller(predictor=None, interval_seconds: int = 45):
 def run_cloud_retrain(job_id: int):
     """
     Background job to:
-    1. Fetch approved samples from DB
-    2. Write them to processed disk
-    3. Retrain both models
-    4. Upload the resulting models to Neon DB
+    1. Mark training job as RUNNING.
+    2. Fetch approved samples from DB.
+    3. Write them to processed disk.
+    4. Retrain both models.
+    5. Upload resulting models to database.
+    6. Mark job as COMPLETED.
     """
     mgr = UserManager()
-
-    # Mark job as running
-    sql_running = "UPDATE training_jobs SET status = 'RUNNING', started_at = NOW() WHERE id = %s"
-    try:
-        with mgr._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql_running, (job_id,))
-            conn.commit()
-    except Exception as e:
-        logger.error("Error updating job status: %s", e)
-        return
+    mgr.update_training_job_status(job_id, status="RUNNING", started=True)
 
     try:
         submissions = mgr.get_all_submissions(status="APPROVED")
@@ -239,7 +279,6 @@ def run_cloud_retrain(job_id: int):
             logger.warning("No approved submissions to train on.")
             raise Exception("No approved submissions")
 
-        # Group and write sample data to processed directory
         for sub in submissions:
             label = sub["gesture_label"].upper()
             gtype = sub["gesture_type"]
@@ -256,14 +295,14 @@ def run_cloud_retrain(job_id: int):
                     with open(file_path, "wb") as f:
                         f.write(data)
 
-        # Run the training scripts
+        # Run training
         from src.train_moe import train_alphabet_expert, train_word_expert
         import joblib
 
         train_alphabet_expert()
         train_word_expert()
 
-        # Upload Alphabet Model to DB
+        # Upload Alphabet model
         if config.ALPHABET_MODEL_PATH.exists():
             alpha_classes = []
             if config.ALPHABET_ENCODER_PATH.exists():
@@ -281,7 +320,7 @@ def run_cloud_retrain(job_id: int):
                 notes=f"Cloud retraining job #{job_id}",
             )
 
-        # Upload Word Model to DB
+        # Upload Word model
         if config.WORD_MODEL_PATH.exists():
             word_classes = []
             if config.WORD_ENCODER_PATH.exists():
@@ -299,13 +338,7 @@ def run_cloud_retrain(job_id: int):
                 notes=f"Cloud retraining job #{job_id}",
             )
 
-        # Update job as completed
-        sql_completed = "UPDATE training_jobs SET status = 'COMPLETED', completed_at = NOW() WHERE id = %s"
-        with mgr._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql_completed, (job_id,))
-            conn.commit()
-
+        mgr.update_training_job_status(job_id, status="COMPLETED", completed=True)
         logger.info("Cloud retrain job #%d completed successfully!", job_id)
 
         try:
@@ -318,11 +351,7 @@ def run_cloud_retrain(job_id: int):
 
     except Exception as e:
         logger.error("Cloud retrain failed: %s", e, exc_info=True)
-        sql_fail = "UPDATE training_jobs SET status = 'FAILED', error_message = %s, completed_at = NOW() WHERE id = %s"
-        with mgr._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql_fail, (str(e), job_id))
-            conn.commit()
+        mgr.update_training_job_status(job_id, status="FAILED", completed=True, error_message=str(e))
 
 
 def start_cloud_retrain_thread(job_id: int):

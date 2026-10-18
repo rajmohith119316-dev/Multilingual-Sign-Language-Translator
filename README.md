@@ -623,37 +623,86 @@ Params ≈ 37,000 + (128·N + N)
 
 ---
 
-## 10. Database Schema
+## 10. Database Architecture & MongoDB Atlas Migration
 
-```sql
--- Gesture registry with type constraint
-CREATE TABLE gestures (
-    id           INTEGER   PRIMARY KEY AUTOINCREMENT,
-    gesture_name TEXT      NOT NULL UNIQUE,
-    gesture_type TEXT      NOT NULL CHECK(gesture_type IN ('Alphabet','Word')),
-    is_custom    INTEGER   NOT NULL DEFAULT 0,
-    sample_count INTEGER   NOT NULL DEFAULT 0,
-    date_added   TIMESTAMP NOT NULL DEFAULT (datetime('now'))
-);
+The application features a hybrid data architecture with primary backend on **MongoDB Atlas Free Tier** (`sign_language_db`) and zero-risk rollback support for PostgreSQL.
 
--- Full prediction audit log
-CREATE TABLE prediction_history (
-    id               INTEGER   PRIMARY KEY AUTOINCREMENT,
-    predicted_label  TEXT      NOT NULL,
-    confidence_score REAL      NOT NULL,
-    target_language  TEXT      NOT NULL,
-    translated_text  TEXT      NOT NULL,
-    timestamp        TIMESTAMP NOT NULL DEFAULT (datetime('now'))
-);
+### 10.1 Dual Backend Configuration (`config.py` & `.env`)
 
--- Translation cache — 0ms on repeat phrases
-CREATE TABLE translation_cache (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    english_text    TEXT    NOT NULL,
-    target_language TEXT    NOT NULL,
-    translated_text TEXT    NOT NULL,
-    UNIQUE(english_text, target_language)
-);
+The database backend is controlled via the `DATABASE_BACKEND` environment setting:
+
+```env
+# Database Backend Selection ('mongodb' or 'postgres')
+DATABASE_BACKEND=mongodb
+
+# MongoDB Atlas Free Tier Configuration
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DATABASE=sign_language_db
+
+# PostgreSQL Configuration (Preserved for Rollback)
+DATABASE_URL=postgresql://<user>:<password>@<host>/<database>?sslmode=require
+```
+
+### 10.2 MongoDB Collections & Document Schemas
+
+All 10 application collections maintain integer `id` indexing for frontend compatibility, along with optimized secondary indexes:
+
+1. **`gestures`**: Registry of supported sign gestures (`id`, `gesture_name`, `gesture_type`, `is_custom`, `sample_count`, `date_added`).
+   - Indexes: `{id: 1}` (unique), `{gesture_name: 1}` (unique), `{gesture_type: 1}`.
+2. **`prediction_history`**: Audit trail of live gesture recognitions (`id`, `predicted_label`, `confidence_score`, `target_language`, `translated_text`, `timestamp`).
+   - Indexes: `{id: 1}` (unique), `{timestamp: -1}`, `{predicted_label: 1}`.
+3. **`translation_cache`**: 0ms multilingual translations (`id`, `english_text`, `target_language`, `translated_text`, `created_at`).
+   - Indexes: `{id: 1}` (unique), `{english_text: 1, target_language: 1}` (unique).
+4. **`users`**: User accounts and RBAC credentials (`id`, `username`, `email`, `password_hash`, `role`, `full_name`, `created_at`, `is_active`).
+   - Indexes: `{id: 1}` (unique), `{username: 1}` (unique), `{email: 1}` (unique), `{role: 1}`.
+5. **`user_sessions`**: Web authentication sessions (`id`, `session_id`, `user_id`, `ip_address`, `user_agent`, `created_at`, `last_activity`, `logout_time`).
+   - Indexes: `{id: 1}` (unique), `{session_id: 1}` (unique), `{user_id: 1}`.
+6. **`user_activity`**: Audit trail of administrative and user actions (`id`, `user_id`, `activity_type`, `page`, `action`, `session_id`, `created_at`).
+   - Indexes: `{id: 1}` (unique), `{user_id: 1, created_at: -1}`.
+7. **`training_submissions`**: User-submitted gesture contributions for review (`id`, `user_id`, `gesture_label`, `gesture_type`, `sample_count`, `status`, `submitted_at`, `reviewed_at`, `reviewed_by`, `rejection_reason`).
+   - Indexes: `{id: 1}` (unique), `{user_id: 1, submitted_at: -1}`, `{status: 1}`.
+8. **`training_samples`**: Landmark training data for submitted gestures (`id`, `submission_id`, `sample_path`, `sample_type`, `frame_count`, `sample_data`, `created_at`, `is_valid`).
+   - Indexes: `{id: 1}` (unique), `{submission_id: 1}`.
+9. **`model_versions`**: Cloud synchronized model metadata and binary tags (`id`, `version_tag`, `model_type`, `model_path`, `accuracy`, `parameters`, `notes`, `model_data`, `encoder_data`, `is_active`, `created_at`, `created_by`).
+   - Indexes: `{id: 1}` (unique), `{version_tag: 1}` (unique), `{model_type: 1, is_active: 1}`.
+10. **`training_jobs`**: Dynamic retraining job tracking and status logs (`id`, `job_type`, `status`, `logs`, `created_by`, `created_at`, `completed_at`).
+    - Indexes: `{id: 1}` (unique), `{created_at: -1}`, `{status: 1}`.
+
+### 10.3 Offline Resilience & Outage Journaling
+
+To guarantee uninterrupted live translation during network latency or database outages:
+- **In-Memory Cache:** 512 pre-cached translations loaded on startup provide instantaneous 0ms lookups without database round-trips.
+- **Offline Disk Journal:** Predictions during outages failover seamlessly to an append-only journal (`logs/offline_prediction_journal.jsonl`). When connection to MongoDB Atlas resumes, the journal drains and flushes automatically to the `prediction_history` collection.
+- **Zero DB Calls per Frame:** Feature extraction and real-time MoE inference execute 100% locally with zero database round-trips per video frame.
+
+### 10.4 Migration Tooling (`scripts/migrate_postgres_to_mongodb.py`)
+
+A safe, transactional migration utility transfers data and verifies collection integrity:
+
+```bash
+# 1. Dry run (validates transforms and constraints without writing)
+python scripts/migrate_postgres_to_mongodb.py --dry-run
+
+# 2. Live migration with batching and index generation
+python scripts/migrate_postgres_to_mongodb.py
+
+# 3. Post-migration data validation
+python scripts/migrate_postgres_to_mongodb.py --validate
+```
+
+### 10.5 Rollback Procedure
+
+If you ever need to revert to the PostgreSQL database:
+1. Set `DATABASE_BACKEND=postgres` in `.env`.
+2. Ensure `DATABASE_URL` is configured.
+3. Restart the Flask application (`python web_app.py`). Both `DatabaseManager` and `UserManager` will immediately route queries to PostgreSQL without code modifications.
+
+### 10.6 Running the Test Suite
+
+Execute the comprehensive 44-test master suite covering unit and integration testing:
+
+```bash
+python tests/run_all_tests.py
 ```
 
 ---

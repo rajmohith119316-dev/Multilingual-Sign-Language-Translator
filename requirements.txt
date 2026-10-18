@@ -14,7 +14,8 @@ Flask>=3.0.0
 Pillow>=10.3.0
 # tkinter is optional (legacy desktop GUI in src/gui.py)
 # ── Database ──────────────────────────────────────────────────────────────────
-psycopg2-binary>=2.9.9  # PostgreSQL driver
+pymongo>=4.6.0          # MongoDB Atlas driver
+psycopg2-binary>=2.9.9  # PostgreSQL driver (for backup / migration / rollback)
 # ── Utilities ─────────────────────────────────────────────────────────────────
 requests>=2.31.0      # for auto-downloading hand_landmarker.task
 tqdm>=4.66.0          # progress bars in data processors

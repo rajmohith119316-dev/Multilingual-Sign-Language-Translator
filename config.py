@@ -11,6 +11,16 @@ from dotenv import load_dotenv
 # Loads the hidden variables from the .env file when running locally
 load_dotenv()
 
+# Safely check for external atlas-credentials.env without hardcoding paths or printing values
+for _candidate in (
+    Path(__file__).resolve().parent / "atlas-credentials.env",
+    Path(__file__).resolve().parent.parent / "atlas-credentials.env",
+    Path.home() / "Downloads" / "atlas-credentials.env",
+):
+    if _candidate.exists():
+        load_dotenv(dotenv_path=_candidate, override=False)
+        break
+
 # ─── Base Directories ────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
 SRC_DIR  = BASE_DIR / "src"
@@ -46,14 +56,15 @@ WORD_MODEL_PATH   = MODEL_DIR / "word_expert.h5"
 WORD_ENCODER_PATH = MODEL_DIR / "word_encoder.pkl"
 
 # ─── Database ─────────────────────────────────────────────────────────────────
-# PostgreSQL connection string built from standard environment variables.
-# Set these in your shell, .env file, or deployment secrets before running.
-#   DB_NAME     (default: sign_language_db)
-#   DB_USER     (default: postgres)
-#   DB_PASSWORD (default: "")
-#   DB_HOST     (default: localhost)
-#   DB_PORT     (default: 5432)
-# Fetches the secure URL without exposing the password
+# Supported backends: 'mongodb' (default) or 'postgres' (rollback)
+DATABASE_BACKEND = os.getenv("DATABASE_BACKEND", "mongodb").lower()
+
+# MongoDB Atlas Free Tier configuration
+# Read securely from environment or loaded atlas-credentials.env
+MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "sign_language_db")
+
+# PostgreSQL connection string (retained for migration, backup & rollback)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # ─── Feature Dimensions ───────────────────────────────────────────────────────

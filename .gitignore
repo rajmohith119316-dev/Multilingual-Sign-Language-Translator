@@ -36,6 +36,14 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Environment variables
+# Environment variables and secrets
 .env
 .env.bak
+.env.*
+atlas-credentials*.env
+*credentials*.env
+*.env
+!*.env.example
+
+# Scratch and temporary scripts
+scratch/

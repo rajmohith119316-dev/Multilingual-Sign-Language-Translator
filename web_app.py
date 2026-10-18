@@ -222,14 +222,25 @@ ASL_HAND_POSES = {
 # ═══════════════════════════════════════════════════════════════════════════
 
 # ── Components (initialized once at startup) ─────────────────────────────────
-db: DatabaseManager = None          # type: ignore[assignment]
+try:
+    db: DatabaseManager = DatabaseManager()
+except Exception as _db_err:
+    logger.warning("Could not initialize DatabaseManager immediately: %s", _db_err)
+    db = None
+
 predictor: GesturePredictor = None  # type: ignore[assignment]
 translator: AudioTranslator = None  # type: ignore[assignment]
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 from src.auth_models import UserManager
 from src.auth_routes import auth_bp, init_auth, login_required
-user_mgr: UserManager = None        # type: ignore[assignment]
+
+try:
+    user_mgr: UserManager = UserManager()
+    init_auth(user_mgr)
+except Exception as _um_err:
+    logger.warning("Could not initialize UserManager immediately: %s", _um_err)
+    user_mgr = None
 
 # ── Single shared camera ─────────────────────────────────────────────────────
 # (Cloud Inference: Camera is handled by the client browser)
@@ -658,13 +669,13 @@ def api_known_signs():
 
 @app.route("/api/sync_cloud_models", methods=["POST"])
 def api_sync_cloud_models():
-    """Download latest active models from Neon DB and hot-reload predictor."""
+    """Download latest active models from Cloud DB and hot-reload predictor."""
     try:
         from src.cloud_sync import sync_active_models_from_db
         res = sync_active_models_from_db(predictor=predictor, force=True)
         return jsonify({
             "ok": True,
-            "message": "Synchronized with Neon Cloud DB.",
+            "message": "Synchronized with Cloud DB.",
             "synced": res.get("synced", False),
             "updated": res.get("updated", []),
             "alphabets": predictor.known_alphabets if predictor else [],
@@ -698,8 +709,8 @@ def init_components():
     init_auth(user_mgr)
     logger.info("Auth system ready.")
 
-    # Sync latest active models from Neon DB before initializing predictor
-    logger.info("Checking Neon Cloud DB for latest active models…")
+    # Sync latest active models from Cloud DB before initializing predictor
+    logger.info("Checking Cloud DB for latest active models…")
     try:
         from src.cloud_sync import sync_active_models_from_db, start_cloud_sync_poller
         sync_active_models_from_db(force=False)

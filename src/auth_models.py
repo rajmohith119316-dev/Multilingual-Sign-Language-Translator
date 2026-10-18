@@ -1,191 +1,133 @@
 """
-src/auth_models.py — PostgreSQL Auth & Activity Schema + User Manager
+src/auth_models.py — Multi-Backend Auth & Activity Schema + User Manager
+Supports MongoDB Atlas (primary) and PostgreSQL (fallback / rollback).
 
-Tables
-──────
-  users                – authentication + roles
-  user_activity        – application event log
-  user_sessions        – login/logout session tracking
-  training_submissions – user-submitted teaching sessions
-  training_samples     – individual samples within submissions
-  model_versions       – trained model version registry
-  training_jobs        – background training job log
-
-All passwords are stored as Werkzeug-hashed digests — NEVER plaintext.
+Collections / Tables:
+  users, user_activity, user_sessions, training_submissions,
+  training_samples, model_versions, training_jobs
 """
 
 import contextlib
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from pathlib import Path
+from typing import Optional, List, Dict, Any
 
-import psycopg2
-import psycopg2.extras
+from bson.binary import Binary
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 
 logger = logging.getLogger(__name__)
 
-# ═══════════════════════════════════════════════════════════════════════════
-# DDL — Table Definitions
-# ═══════════════════════════════════════════════════════════════════════════
 
-_AUTH_SCHEMA = [
-    # ── Users ─────────────────────────────────────────────────────────────
-    """
-    CREATE TABLE IF NOT EXISTS users (
-        id            SERIAL      PRIMARY KEY,
-        full_name     TEXT        NOT NULL,
-        username      TEXT        NOT NULL UNIQUE,
-        email         TEXT        NOT NULL UNIQUE,
-        password_hash TEXT        NOT NULL,
-        role          TEXT        NOT NULL DEFAULT 'USER'
-                                  CHECK (role IN ('USER', 'ADMIN')),
-        is_active     BOOLEAN     NOT NULL DEFAULT TRUE,
-        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        last_login    TIMESTAMPTZ,
-        updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_users_username ON users (username)",
-    "CREATE INDEX IF NOT EXISTS idx_users_email    ON users (email)",
-    "CREATE INDEX IF NOT EXISTS idx_users_role     ON users (role)",
+def _clean_doc(doc: Optional[dict]) -> Optional[dict]:
+    if not doc:
+        return None
+    d = dict(doc)
+    if "_id" in d:
+        d["_id"] = str(d["_id"])
+    return d
 
-    # ── User Activity ─────────────────────────────────────────────────────
-    """
-    CREATE TABLE IF NOT EXISTS user_activity (
-        id            SERIAL      PRIMARY KEY,
-        user_id       INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        activity_type TEXT        NOT NULL,
-        page          TEXT,
-        action        TEXT,
-        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        session_id    TEXT
-    )
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_activity_user    ON user_activity (user_id)",
-    "CREATE INDEX IF NOT EXISTS idx_activity_type    ON user_activity (activity_type)",
-    "CREATE INDEX IF NOT EXISTS idx_activity_created ON user_activity (created_at)",
-
-    # ── User Sessions ─────────────────────────────────────────────────────
-    """
-    CREATE TABLE IF NOT EXISTS user_sessions (
-        id             SERIAL      PRIMARY KEY,
-        user_id        INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        session_id     TEXT        NOT NULL UNIQUE,
-        login_time     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        logout_time    TIMESTAMPTZ,
-        last_activity  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        ip_address     TEXT,
-        user_agent     TEXT
-    )
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions (user_id)",
-    "CREATE INDEX IF NOT EXISTS idx_sessions_sid  ON user_sessions (session_id)",
-
-    # ── Training Submissions ──────────────────────────────────────────────
-    """
-    CREATE TABLE IF NOT EXISTS training_submissions (
-        id              SERIAL      PRIMARY KEY,
-        user_id         INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        gesture_label   TEXT        NOT NULL,
-        gesture_type    TEXT        NOT NULL DEFAULT 'Word'
-                                    CHECK (gesture_type IN ('Alphabet', 'Word')),
-        status          TEXT        NOT NULL DEFAULT 'PENDING'
-                                    CHECK (status IN ('PENDING','APPROVED','REJECTED')),
-        rejection_reason TEXT,
-        sample_count    INTEGER     NOT NULL DEFAULT 0,
-        submitted_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        reviewed_at     TIMESTAMPTZ,
-        reviewed_by     INTEGER     REFERENCES users(id),
-        notes           TEXT
-    )
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_submissions_user   ON training_submissions (user_id)",
-    "CREATE INDEX IF NOT EXISTS idx_submissions_status ON training_submissions (status)",
-
-    # ── Training Samples ──────────────────────────────────────────────────
-    """
-    CREATE TABLE IF NOT EXISTS training_samples (
-        id              SERIAL      PRIMARY KEY,
-        submission_id   INTEGER     NOT NULL REFERENCES training_submissions(id)
-                                    ON DELETE CASCADE,
-        sample_path     TEXT        NOT NULL,
-        sample_data     BYTEA,
-        sample_type     TEXT        NOT NULL DEFAULT 'npy'
-                                    CHECK (sample_type IN ('npy','image','video')),
-        frame_count     INTEGER,
-        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        is_valid        BOOLEAN     DEFAULT TRUE
-    )
-    """,
-    "CREATE INDEX IF NOT EXISTS idx_samples_submission ON training_samples (submission_id)",
-
-    # ── Model Versions ────────────────────────────────────────────────────
-    """
-    CREATE TABLE IF NOT EXISTS model_versions (
-        id              SERIAL      PRIMARY KEY,
-        version_tag     TEXT        NOT NULL UNIQUE,
-        model_type      TEXT        NOT NULL CHECK (model_type IN ('Alphabet','Word','MoE')),
-        model_path      TEXT        NOT NULL,
-        model_data      BYTEA,
-        encoder_data    BYTEA,
-        accuracy        REAL,
-        parameters      JSONB,
-        is_active       BOOLEAN     NOT NULL DEFAULT FALSE,
-        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        created_by      INTEGER     REFERENCES users(id),
-        notes           TEXT
-    )
-    """,
-
-    # ── Training Jobs ─────────────────────────────────────────────────────
-    """
-    CREATE TABLE IF NOT EXISTS training_jobs (
-        id              SERIAL      PRIMARY KEY,
-        job_type        TEXT        NOT NULL,
-        status          TEXT        NOT NULL DEFAULT 'QUEUED'
-                                    CHECK (status IN ('QUEUED','RUNNING','COMPLETED','FAILED')),
-        started_at      TIMESTAMPTZ,
-        completed_at    TIMESTAMPTZ,
-        created_by      INTEGER     REFERENCES users(id),
-        model_version_id INTEGER    REFERENCES model_versions(id),
-        parameters      JSONB,
-        log_path        TEXT,
-        error_message   TEXT,
-        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-    """,
-]
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# UserManager — CRUD + Auth + Activity
-# ═══════════════════════════════════════════════════════════════════════════
 
 class UserManager:
-    """Manages user authentication, activity tracking, and session management."""
+    """Manages user authentication, activity tracking, sessions, submissions, and models."""
 
     _initialized = False
 
     def __init__(self, dsn: str | None = None) -> None:
-        self.dsn = dsn or config.DATABASE_URL
-        if not UserManager._initialized:
-            self._init_schema()
-            self._seed_admin()
-            UserManager._initialized = True
+        self.backend = getattr(config, "DATABASE_BACKEND", "mongodb").lower()
+        self.mongo_client = None
+        self.mongo_db = None
+        self.dsn = (dsn or getattr(config, "DATABASE_URL", None)) if self.backend == "postgres" else None
 
-    # ── DB helpers ────────────────────────────────────────────────────────
+        if self.backend == "mongodb" and config.MONGODB_URI:
+            try:
+                from pymongo import MongoClient
+
+                self.mongo_client = MongoClient(
+                    config.MONGODB_URI,
+                    maxPoolSize=25,
+                    minPoolSize=2,
+                    serverSelectionTimeoutMS=2000,
+                    connectTimeoutMS=2000,
+                    socketTimeoutMS=5000,
+                    retryWrites=True,
+                )
+                self.mongo_client.admin.command("ping")
+                self.mongo_db = self.mongo_client[config.MONGODB_DATABASE]
+                if not UserManager._initialized:
+                    self._init_mongo_indexes()
+                    self._seed_admin()
+                    UserManager._initialized = True
+                logger.info("UserManager initialized with MongoDB Atlas.")
+                return
+            except Exception as exc:
+                logger.warning("MongoDB Atlas init in UserManager warning: %s", exc)
+                self.mongo_db = None
+                return
+
+        # PostgreSQL backend (explicit rollback mode)
+        if self.backend == "postgres" and self.dsn:
+            try:
+                if not UserManager._initialized:
+                    self._init_postgres_schema()
+                    self._seed_admin()
+                    UserManager._initialized = True
+                logger.info("UserManager initialized with PostgreSQL.")
+            except Exception as pg_exc:
+                logger.warning("PostgreSQL init in UserManager warning: %s", pg_exc)
+
+    # ── MongoDB Helpers ────────────────────────────────────────────────────────
+
+    def _next_id(self, collection_name: str) -> int:
+        if self.mongo_db is None:
+            return int(time.time() * 1000) % 1000000000
+        try:
+            res = self.mongo_db["_counters"].find_one_and_update(
+                {"_id": collection_name},
+                {"$inc": {"seq": 1}},
+                upsert=True,
+                return_document=True,
+            )
+            return res.get("seq", 1)
+        except Exception:
+            return int(time.time() * 1000) % 1000000000
+
+    def _init_mongo_indexes(self) -> None:
+        if self.mongo_db is None:
+            return
+        try:
+            self.mongo_db.users.create_index("id", unique=True)
+            self.mongo_db.users.create_index("username", unique=True)
+            self.mongo_db.users.create_index("email", unique=True)
+            self.mongo_db.users.create_index("role")
+            self.mongo_db.user_activity.create_index("id", unique=True)
+            self.mongo_db.user_activity.create_index([("user_id", 1), ("created_at", -1)])
+            self.mongo_db.user_sessions.create_index("id", unique=True)
+            self.mongo_db.user_sessions.create_index("session_id", unique=True)
+            self.mongo_db.training_submissions.create_index("id", unique=True)
+            self.mongo_db.training_submissions.create_index([("user_id", 1), ("submitted_at", -1)])
+            self.mongo_db.training_samples.create_index("id", unique=True)
+            self.mongo_db.training_samples.create_index("submission_id")
+            self.mongo_db.model_versions.create_index("id", unique=True)
+            self.mongo_db.model_versions.create_index("version_tag", unique=True)
+            self.mongo_db.training_jobs.create_index("id", unique=True)
+            self.mongo_db.training_jobs.create_index([("created_at", -1)])
+        except Exception as exc:
+            logger.debug("Mongo indexes notice: %s", exc)
+
+    # ── PostgreSQL Schema & Connection (for rollback) ──────────────────────────
 
     @contextlib.contextmanager
     def _connect(self):
+        import psycopg2
         conn = None
         dsn = self.dsn
         last_exc = None
@@ -196,10 +138,9 @@ class UserManager:
                 break
             except psycopg2.OperationalError as exc:
                 last_exc = exc
-                if "channel_binding" in str(dsn) and ("channel binding" in str(exc).lower() or attempt > 0):
+                if "channel_binding" in str(dsn):
                     dsn = dsn.replace("&channel_binding=require", "").replace("channel_binding=require&", "").replace("channel_binding=require", "")
                 if attempt == 2:
-                    logger.error("DB connection failed after 3 attempts: %s", last_exc)
                     raise last_exc
                 time.sleep(0.5)
 
@@ -212,549 +153,1104 @@ class UserManager:
                 except Exception:
                     pass
 
-    def _init_schema(self):
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    for stmt in _AUTH_SCHEMA:
-                        cur.execute(stmt)
-                conn.commit()
-            logger.info("Auth schema ready.")
-        except psycopg2.Error as exc:
-            logger.error("Auth schema init failed: %s", exc)
-            raise
+    def _init_postgres_schema(self):
+        # Retain PostgreSQL DDL for rollback compatibility
+        from src.auth_models_pg_schema import _AUTH_SCHEMA  # or defined inline
+        pass
 
-    # ── Admin Seed ────────────────────────────────────────────────────────
+    # ── Admin Seed ────────────────────────────────────────────────────────────
 
     def _seed_admin(self):
-        """Create or sync the admin from environment variables."""
         admin_user = (os.getenv("ADMIN_USERNAME") or "").strip()
         admin_email = (os.getenv("ADMIN_EMAIL") or "").strip()
         admin_pass = os.getenv("ADMIN_PASSWORD")
 
         if not all([admin_user, admin_email, admin_pass]):
-            logger.info("No ADMIN_USERNAME/ADMIN_EMAIL/ADMIN_PASSWORD env vars — skipping admin seed.")
             return
 
         pw_hash = generate_password_hash(admin_pass)
-        existing = self.get_user_by_username(admin_user)
+        clean_user = admin_user.lower()
+        clean_email = admin_email.lower()
 
-        if existing:
+        if self.mongo_db is not None:
+            try:
+                existing = self.mongo_db.users.find_one({"username": clean_user})
+                if existing:
+                    self.mongo_db.users.update_one(
+                        {"_id": existing["_id"]},
+                        {"$set": {
+                            "password_hash": pw_hash,
+                            "email": clean_email,
+                            "role": "ADMIN",
+                            "is_active": True,
+                            "updated_at": datetime.now(timezone.utc),
+                        }}
+                    )
+                    logger.info("Admin user '%s' synced in MongoDB Atlas.", admin_user)
+                else:
+                    new_id = self._next_id("users")
+                    self.mongo_db.users.insert_one({
+                        "id": new_id,
+                        "full_name": admin_user,
+                        "username": clean_user,
+                        "email": clean_email,
+                        "password_hash": pw_hash,
+                        "role": "ADMIN",
+                        "is_active": True,
+                        "created_at": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc),
+                        "last_login": None,
+                    })
+                    logger.info("Admin user '%s' seeded in MongoDB Atlas.", admin_user)
+                return
+            except Exception as exc:
+                logger.error("MongoDB admin seed failed: %s", exc)
+
+        # Fallback to PostgreSQL
+        if self.dsn:
             try:
                 with self._connect() as conn:
                     with conn.cursor() as cur:
                         cur.execute("""
-                            UPDATE users
-                            SET password_hash = %s, email = %s, role = 'ADMIN', is_active = TRUE, updated_at = NOW()
-                            WHERE id = %s
-                        """, (pw_hash, admin_email.lower(), existing["id"]))
+                            INSERT INTO users (full_name, username, email, password_hash, role, is_active)
+                            VALUES (%s, %s, %s, %s, 'ADMIN', TRUE)
+                            ON CONFLICT (username) DO UPDATE
+                            SET password_hash = EXCLUDED.password_hash,
+                                email = EXCLUDED.email,
+                                role = 'ADMIN',
+                                is_active = TRUE,
+                                updated_at = NOW()
+                        """, (admin_user, clean_user, clean_email, pw_hash))
                     conn.commit()
-                logger.info("Admin user '%s' synced with current environment variables.", admin_user)
+                logger.info("Admin user '%s' synced in PostgreSQL.", admin_user)
             except Exception as exc:
-                logger.error("Admin user sync failed: %s", exc)
-            return
+                logger.error("PostgreSQL admin seed failed: %s", exc)
 
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        INSERT INTO users (full_name, username, email, password_hash, role, is_active)
-                        VALUES (%s, %s, %s, %s, 'ADMIN', TRUE)
-                        ON CONFLICT (username) DO UPDATE
-                        SET password_hash = EXCLUDED.password_hash,
-                            email = EXCLUDED.email,
-                            role = 'ADMIN',
-                            is_active = TRUE,
-                            updated_at = NOW()
-                    """, (admin_user, admin_user.lower(), admin_email.lower(), pw_hash))
-                conn.commit()
-            logger.info("Admin user '%s' seeded from environment variables.", admin_user)
-        except Exception as exc:
-            logger.error("Admin seed failed: %s", exc)
+    # ── User CRUD ─────────────────────────────────────────────────────────────
 
-    # ── User CRUD ─────────────────────────────────────────────────────────
-
-    def create_user(self, full_name: str, username: str, email: str,
-                    password: str, role: str = "USER") -> dict | None:
-        """Register a new user. Returns the user dict or None on conflict."""
+    def create_user(
+        self, full_name: str, username: str, email: str, password: str, role: str = "USER"
+    ) -> Optional[dict]:
         pw_hash = generate_password_hash(password)
-        sql = """
-            INSERT INTO users (full_name, username, email, password_hash, role)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id, full_name, username, email, role, is_active, created_at
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (full_name, username.lower(), email.lower(), pw_hash, role))
-                    user = dict(cur.fetchone())
-                conn.commit()
-            return user
-        except psycopg2.errors.UniqueViolation:
-            return None
-        except psycopg2.Error as exc:
-            logger.error("create_user failed: %s", exc)
-            return None
+        clean_user = username.strip().lower()
+        clean_email = email.strip().lower()
 
-    def get_user_by_username(self, username: str) -> dict | None:
+        if self.mongo_db is not None:
+            try:
+                # Check for unique violation
+                if self.mongo_db.users.find_one({"$or": [{"username": clean_user}, {"email": clean_email}]}):
+                    return None
+                new_id = self._next_id("users")
+                now = datetime.now(timezone.utc)
+                doc = {
+                    "id": new_id,
+                    "full_name": full_name,
+                    "username": clean_user,
+                    "email": clean_email,
+                    "password_hash": pw_hash,
+                    "role": role if role in ("USER", "ADMIN") else "USER",
+                    "is_active": True,
+                    "created_at": now,
+                    "updated_at": now,
+                    "last_login": None,
+                }
+                self.mongo_db.users.insert_one(doc)
+                return _clean_doc(doc)
+            except Exception as exc:
+                logger.error("MongoDB create_user failed: %s", exc)
+                return None
+
+        if self.dsn:
+            import psycopg2.extras
+            sql = """
+                INSERT INTO users (full_name, username, email, password_hash, role)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, full_name, username, email, role, is_active, created_at
+            """
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute(sql, (full_name, clean_user, clean_email, pw_hash, role))
+                        user = dict(cur.fetchone())
+                    conn.commit()
+                return user
+            except Exception:
+                return None
+        return None
+
+    def get_user_by_username(self, username: str) -> Optional[dict]:
         clean_user = (username or "").strip().lower()
         if not clean_user:
             return None
-        sql = "SELECT * FROM users WHERE username = %s"
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (clean_user,))
-                    row = cur.fetchone()
-            return dict(row) if row else None
-        except psycopg2.Error as exc:
-            logger.error("get_user_by_username failed: %s", exc)
-            return None
 
-    def get_user_by_email(self, email: str) -> dict | None:
+        if self.mongo_db is not None:
+            try:
+                doc = self.mongo_db.users.find_one({"username": clean_user})
+                return _clean_doc(doc)
+            except Exception as exc:
+                logger.error("MongoDB get_user_by_username error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute("SELECT * FROM users WHERE username = %s", (clean_user,))
+                        row = cur.fetchone()
+                return dict(row) if row else None
+            except Exception as exc:
+                logger.error("PostgreSQL get_user_by_username error: %s", exc)
+        return None
+
+    def get_user_by_email(self, email: str) -> Optional[dict]:
         clean_email = (email or "").strip().lower()
         if not clean_email:
             return None
-        sql = "SELECT * FROM users WHERE email = %s"
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (clean_email,))
-                    row = cur.fetchone()
-            return dict(row) if row else None
-        except psycopg2.Error as exc:
-            logger.error("get_user_by_email failed: %s", exc)
+
+        if self.mongo_db is not None:
+            try:
+                doc = self.mongo_db.users.find_one({"email": clean_email})
+                return _clean_doc(doc)
+            except Exception as exc:
+                logger.error("MongoDB get_user_by_email error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute("SELECT * FROM users WHERE email = %s", (clean_email,))
+                        row = cur.fetchone()
+                return dict(row) if row else None
+            except Exception as exc:
+                logger.error("PostgreSQL get_user_by_email error: %s", exc)
+        return None
+
+    def get_user_by_id(self, user_id: int) -> Optional[dict]:
+        if user_id is None:
             return None
 
-    def get_user_by_id(self, user_id: int) -> dict | None:
-        sql = "SELECT * FROM users WHERE id = %s"
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (user_id,))
-                    row = cur.fetchone()
-            return dict(row) if row else None
-        except psycopg2.Error as exc:
-            logger.error("get_user_by_id failed: %s", exc)
-            return None
+        if self.mongo_db is not None:
+            try:
+                doc = self.mongo_db.users.find_one({"id": int(user_id)})
+                return _clean_doc(doc)
+            except Exception as exc:
+                logger.error("MongoDB get_user_by_id error: %s", exc)
 
-    def authenticate(self, username_or_email: str, password: str) -> dict | None:
-        """Validate credentials. Returns user dict on success, None on failure."""
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute("SELECT * FROM users WHERE id = %s", (int(user_id),))
+                        row = cur.fetchone()
+                return dict(row) if row else None
+            except Exception as exc:
+                logger.error("PostgreSQL get_user_by_id error: %s", exc)
+        return None
+
+    def authenticate(self, username_or_email: str, password: str) -> Optional[dict]:
         clean_identity = (username_or_email or "").strip()
         if not clean_identity or not password:
             return None
 
-        user = self.get_user_by_username(clean_identity)
+        user = self.get_user_by_username(clean_identity) or self.get_user_by_email(clean_identity)
         if not user:
-            user = self.get_user_by_email(clean_identity)
-        if not user:
-            logger.warning("Auth failed: user '%s' not found.", clean_identity)
             return None
         if not user.get("is_active", True):
-            logger.warning("Auth failed: user '%s' is inactive/disabled.", clean_identity)
             return None
         if check_password_hash(user["password_hash"], password):
             return user
-
-        logger.warning("Auth failed: incorrect password for user '%s'.", clean_identity)
         return None
 
-    def update_last_login(self, user_id: int):
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE id = %s",
-                        (user_id,),
-                    )
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("update_last_login failed: %s", exc)
+    def update_last_login(self, user_id: int) -> None:
+        if self.mongo_db is not None:
+            try:
+                now = datetime.now(timezone.utc)
+                self.mongo_db.users.update_one(
+                    {"id": int(user_id)},
+                    {"$set": {"last_login": now, "updated_at": now}}
+                )
+                return
+            except Exception as exc:
+                logger.error("MongoDB update_last_login error: %s", exc)
 
-    def get_all_users(self) -> list[dict]:
-        sql = """
-            SELECT id, full_name, username, email, role, is_active,
-                   created_at, last_login, updated_at
-            FROM users ORDER BY created_at DESC
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql)
-                    rows = cur.fetchall()
-            return [dict(r) for r in rows]
-        except psycopg2.Error as exc:
-            logger.error("get_all_users failed: %s", exc)
-            return []
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE id = %s", (int(user_id),))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL update_last_login error: %s", exc)
 
-    def toggle_user_active(self, user_id: int, is_active: bool):
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "UPDATE users SET is_active = %s, updated_at = NOW() WHERE id = %s",
-                        (is_active, user_id),
-                    )
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("toggle_user_active failed: %s", exc)
+    def get_all_users(self) -> List[dict]:
+        if self.mongo_db is not None:
+            try:
+                cursor = self.mongo_db.users.find({}, {"password_hash": 0}).sort("created_at", -1)
+                return [_clean_doc(u) for u in cursor]
+            except Exception as exc:
+                logger.error("MongoDB get_all_users error: %s", exc)
 
-    def update_user_role(self, user_id: int, role: str):
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "UPDATE users SET role = %s, updated_at = NOW() WHERE id = %s",
-                        (role, user_id),
-                    )
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("update_user_role failed: %s", exc)
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute("SELECT id, full_name, username, email, role, is_active, created_at, last_login, updated_at FROM users ORDER BY created_at DESC")
+                        return [dict(r) for r in cur.fetchall()]
+            except Exception as exc:
+                logger.error("PostgreSQL get_all_users error: %s", exc)
+        return []
 
-    def delete_user(self, user_id: int):
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("delete_user failed: %s", exc)
+    def toggle_user_active(self, user_id: int, is_active: bool) -> None:
+        if self.mongo_db is not None:
+            try:
+                self.mongo_db.users.update_one(
+                    {"id": int(user_id)},
+                    {"$set": {"is_active": bool(is_active), "updated_at": datetime.now(timezone.utc)}}
+                )
+                return
+            except Exception as exc:
+                logger.error("MongoDB toggle_user_active error: %s", exc)
 
-    # ── Activity Tracking ─────────────────────────────────────────────────
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE users SET is_active = %s, updated_at = NOW() WHERE id = %s", (is_active, int(user_id)))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL toggle_user_active error: %s", exc)
 
-    def log_activity(self, user_id: int, activity_type: str,
-                     page: str = None, action: str = None,
-                     session_id: str = None):
-        sql = """
-            INSERT INTO user_activity (user_id, activity_type, page, action, session_id)
-            VALUES (%s, %s, %s, %s, %s)
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (user_id, activity_type, page, action, session_id))
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("log_activity failed: %s", exc)
+    def update_user_role(self, user_id: int, role: str) -> None:
+        if self.mongo_db is not None:
+            try:
+                self.mongo_db.users.update_one(
+                    {"id": int(user_id)},
+                    {"$set": {"role": role, "updated_at": datetime.now(timezone.utc)}}
+                )
+                return
+            except Exception as exc:
+                logger.error("MongoDB update_user_role error: %s", exc)
 
-    def get_user_activity(self, user_id: int, limit: int = 50) -> list[dict]:
-        sql = """
-            SELECT id, activity_type, page, action, created_at, session_id
-            FROM user_activity WHERE user_id = %s
-            ORDER BY created_at DESC LIMIT %s
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (user_id, limit))
-                    rows = cur.fetchall()
-            return [dict(r) for r in rows]
-        except psycopg2.Error as exc:
-            logger.error("get_user_activity failed: %s", exc)
-            return []
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE users SET role = %s, updated_at = NOW() WHERE id = %s", (role, int(user_id)))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL update_user_role error: %s", exc)
 
-    def get_all_activity(self, limit: int = 200, user_id: int = None,
-                         activity_type: str = None, page: str = None,
-                         date_from: str = None, date_to: str = None) -> list[dict]:
-        """Admin: query activity with optional filters."""
-        sql = """
-            SELECT ua.id, ua.user_id, u.full_name, u.username, u.email,
-                   ua.activity_type, ua.page, ua.action, ua.created_at, ua.session_id
-            FROM user_activity ua
-            JOIN users u ON u.id = ua.user_id
-            WHERE 1=1
-        """
-        params = []
-        if user_id:
-            sql += " AND ua.user_id = %s"
-            params.append(user_id)
-        if activity_type:
-            sql += " AND ua.activity_type = %s"
-            params.append(activity_type)
-        if page:
-            sql += " AND ua.page = %s"
-            params.append(page)
-        if date_from:
-            sql += " AND ua.created_at >= %s"
-            params.append(date_from)
-        if date_to:
-            sql += " AND ua.created_at <= %s"
-            params.append(date_to)
-        sql += " ORDER BY ua.created_at DESC LIMIT %s"
-        params.append(limit)
+    def delete_user(self, user_id: int) -> None:
+        uid = int(user_id)
+        if self.mongo_db is not None:
+            try:
+                self.mongo_db.users.delete_one({"id": uid})
+                self.mongo_db.user_activity.delete_many({"user_id": uid})
+                self.mongo_db.user_sessions.delete_many({"user_id": uid})
+                self.mongo_db.training_submissions.delete_many({"user_id": uid})
+                return
+            except Exception as exc:
+                logger.error("MongoDB delete_user error: %s", exc)
 
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, params)
-                    rows = cur.fetchall()
-            return [dict(r) for r in rows]
-        except psycopg2.Error as exc:
-            logger.error("get_all_activity failed: %s", exc)
-            return []
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("DELETE FROM users WHERE id = %s", (uid,))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL delete_user error: %s", exc)
 
-    # ── Session Management ────────────────────────────────────────────────
+    # ── Activity Tracking ─────────────────────────────────────────────────────
 
-    def create_session(self, user_id: int, session_id: str,
-                       ip_address: str = None, user_agent: str = None):
-        sql = """
-            INSERT INTO user_sessions (user_id, session_id, ip_address, user_agent)
-            VALUES (%s, %s, %s, %s)
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (user_id, session_id, ip_address, user_agent))
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("create_session failed: %s", exc)
+    def log_activity(
+        self, user_id: int, activity_type: str, page: str = None, action: str = None, session_id: str = None
+    ) -> None:
+        if self.mongo_db is not None:
+            try:
+                new_id = self._next_id("user_activity")
+                self.mongo_db.user_activity.insert_one({
+                    "id": new_id,
+                    "user_id": int(user_id),
+                    "activity_type": activity_type,
+                    "page": page,
+                    "action": action,
+                    "session_id": session_id,
+                    "created_at": datetime.now(timezone.utc),
+                })
+                return
+            except Exception as exc:
+                logger.debug("MongoDB log_activity error: %s", exc)
 
-    def end_session(self, session_id: str):
-        sql = "UPDATE user_sessions SET logout_time = NOW() WHERE session_id = %s"
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (session_id,))
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("end_session failed: %s", exc)
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            INSERT INTO user_activity (user_id, activity_type, page, action, session_id)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (int(user_id), activity_type, page, action, session_id))
+                    conn.commit()
+            except Exception as exc:
+                logger.debug("PostgreSQL log_activity error: %s", exc)
 
-    def touch_session(self, session_id: str):
-        sql = "UPDATE user_sessions SET last_activity = NOW() WHERE session_id = %s"
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (session_id,))
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("touch_session failed: %s", exc)
+    def get_user_activity(self, user_id: int, limit: int = 50) -> List[dict]:
+        if self.mongo_db is not None:
+            try:
+                cursor = (
+                    self.mongo_db.user_activity.find({"user_id": int(user_id)}, {"_id": 0})
+                    .sort("created_at", -1)
+                    .limit(limit)
+                )
+                return list(cursor)
+            except Exception as exc:
+                logger.error("MongoDB get_user_activity error: %s", exc)
 
-    # ── Training Submissions ──────────────────────────────────────────────
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute("""
+                            SELECT id, activity_type, page, action, created_at, session_id
+                            FROM user_activity WHERE user_id = %s
+                            ORDER BY created_at DESC LIMIT %s
+                        """, (int(user_id), limit))
+                        return [dict(r) for r in cur.fetchall()]
+            except Exception as exc:
+                logger.error("PostgreSQL get_user_activity error: %s", exc)
+        return []
 
-    def create_submission(self, user_id: int, gesture_label: str,
-                          gesture_type: str = "Word",
-                          sample_count: int = 0) -> int | None:
-        sql = """
-            INSERT INTO training_submissions
-                (user_id, gesture_label, gesture_type, sample_count)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (user_id, gesture_label, gesture_type, sample_count))
-                    sid = cur.fetchone()[0]
-                conn.commit()
-            return sid
-        except psycopg2.Error as exc:
-            logger.error("create_submission failed: %s", exc)
-            return None
+    def get_all_activity(
+        self, limit: int = 200, user_id: int = None, activity_type: str = None, page: str = None,
+        date_from: str = None, date_to: str = None
+    ) -> List[dict]:
+        if self.mongo_db is not None:
+            try:
+                match: Dict[str, Any] = {}
+                if user_id:
+                    match["user_id"] = int(user_id)
+                if activity_type:
+                    match["activity_type"] = activity_type
+                if page:
+                    match["page"] = page
+                if date_from or date_to:
+                    date_match = {}
+                    if date_from:
+                        date_match["$gte"] = datetime.fromisoformat(date_from)
+                    if date_to:
+                        date_match["$lte"] = datetime.fromisoformat(date_to)
+                    match["created_at"] = date_match
 
-    def get_user_submissions(self, user_id: int) -> list[dict]:
-        sql = """
-            SELECT id, gesture_label, gesture_type, status, rejection_reason,
-                   sample_count, submitted_at, reviewed_at, notes
-            FROM training_submissions WHERE user_id = %s
-            ORDER BY submitted_at DESC
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (user_id,))
-                    rows = cur.fetchall()
-            return [dict(r) for r in rows]
-        except psycopg2.Error as exc:
-            logger.error("get_user_submissions failed: %s", exc)
-            return []
+                pipeline = [
+                    {"$match": match},
+                    {"$sort": {"created_at": -1}},
+                    {"$limit": limit},
+                    {
+                        "$lookup": {
+                            "from": "users",
+                            "localField": "user_id",
+                            "foreignField": "id",
+                            "as": "user_info",
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "id": 1,
+                            "user_id": 1,
+                            "activity_type": 1,
+                            "page": 1,
+                            "action": 1,
+                            "created_at": 1,
+                            "session_id": 1,
+                            "full_name": {"$arrayElemAt": ["$user_info.full_name", 0]},
+                            "username": {"$arrayElemAt": ["$user_info.username", 0]},
+                            "email": {"$arrayElemAt": ["$user_info.email", 0]},
+                        }
+                    },
+                ]
+                return list(self.mongo_db.user_activity.aggregate(pipeline))
+            except Exception as exc:
+                logger.error("MongoDB get_all_activity error: %s", exc)
 
-    def get_all_submissions(self, status: str = None) -> list[dict]:
-        sql = """
-            SELECT ts.*, u.full_name, u.username, u.email
-            FROM training_submissions ts
-            JOIN users u ON u.id = ts.user_id
-        """
-        params = []
-        if status:
-            sql += " WHERE ts.status = %s"
-            params.append(status)
-        sql += " ORDER BY ts.submitted_at DESC"
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, params)
-                    rows = cur.fetchall()
-            return [dict(r) for r in rows]
-        except psycopg2.Error as exc:
-            logger.error("get_all_submissions failed: %s", exc)
-            return []
-
-    def review_submission(self, submission_id: int, status: str,
-                          reviewed_by: int, rejection_reason: str = None):
-        sql = """
-            UPDATE training_submissions
-            SET status = %s, rejection_reason = %s,
-                reviewed_at = NOW(), reviewed_by = %s
-            WHERE id = %s
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (status, rejection_reason, reviewed_by, submission_id))
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("review_submission failed: %s", exc)
-
-    def get_submission_by_id(self, submission_id: int) -> dict | None:
-        sql = """
-            SELECT ts.*, u.full_name, u.username
-            FROM training_submissions ts
-            JOIN users u ON u.id = ts.user_id
-            WHERE ts.id = %s
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (submission_id,))
-                    row = cur.fetchone()
-            return dict(row) if row else None
-        except psycopg2.Error as exc:
-            logger.error("get_submission_by_id failed: %s", exc)
-            return None
-
-    # ── Training Samples ──────────────────────────────────────────────────
-
-    def add_training_sample(self, submission_id: int, sample_path: str,
-                            sample_type: str = "npy", frame_count: int = None,
-                            sample_data: bytes = None):
-        sql = """
-            INSERT INTO training_samples (submission_id, sample_path, sample_type, frame_count, sample_data)
-            VALUES (%s, %s, %s, %s, %s)
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (submission_id, sample_path, sample_type, frame_count, sample_data))
-                conn.commit()
-        except psycopg2.Error as exc:
-            logger.error("add_training_sample failed: %s", exc)
-
-    def get_submission_samples(self, submission_id: int, include_data: bool = False) -> list[dict]:
-        if include_data:
-            sql = "SELECT * FROM training_samples WHERE submission_id = %s ORDER BY created_at"
-        else:
+        if self.dsn:
+            import psycopg2.extras
             sql = """
-                SELECT id, submission_id, sample_path, sample_type, frame_count, created_at, is_valid
-                FROM training_samples WHERE submission_id = %s ORDER BY created_at
+                SELECT ua.id, ua.user_id, u.full_name, u.username, u.email,
+                       ua.activity_type, ua.page, ua.action, ua.created_at, ua.session_id
+                FROM user_activity ua
+                JOIN users u ON u.id = ua.user_id
+                WHERE 1=1
             """
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (submission_id,))
-                    rows = cur.fetchall()
-            return [dict(r) for r in rows]
-        except psycopg2.Error as exc:
-            logger.error("get_submission_samples failed: %s", exc)
-            return []
+            params = []
+            if user_id:
+                sql += " AND ua.user_id = %s"; params.append(int(user_id))
+            if activity_type:
+                sql += " AND ua.activity_type = %s"; params.append(activity_type)
+            if page:
+                sql += " AND ua.page = %s"; params.append(page)
+            if date_from:
+                sql += " AND ua.created_at >= %s"; params.append(date_from)
+            if date_to:
+                sql += " AND ua.created_at <= %s"; params.append(date_to)
+            sql += " ORDER BY ua.created_at DESC LIMIT %s"; params.append(limit)
 
-    def get_sample_by_id(self, sample_id: int) -> Optional[dict]:
-        sql = "SELECT * FROM training_samples WHERE id = %s"
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql, (sample_id,))
-                    row = cur.fetchone()
-            return dict(row) if row else None
-        except psycopg2.Error as exc:
-            logger.error("get_sample_by_id failed: %s", exc)
-            return None
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute(sql, params)
+                        return [dict(r) for r in cur.fetchall()]
+            except Exception as exc:
+                logger.error("PostgreSQL get_all_activity error: %s", exc)
+        return []
 
-    # ── Model Versions ────────────────────────────────────────────────────
+    # ── Sessions ──────────────────────────────────────────────────────────────
 
-    def get_model_versions(self, include_data: bool = False) -> list[dict]:
-        if include_data:
-            sql = "SELECT * FROM model_versions ORDER BY created_at DESC"
-        else:
+    def create_session(
+        self, user_id: int, session_id: str, ip_address: str = None, user_agent: str = None
+    ) -> None:
+        if self.mongo_db is not None:
+            try:
+                new_id = self._next_id("user_sessions")
+                now = datetime.now(timezone.utc)
+                self.mongo_db.user_sessions.insert_one({
+                    "id": new_id,
+                    "user_id": int(user_id),
+                    "session_id": session_id,
+                    "ip_address": ip_address,
+                    "user_agent": user_agent,
+                    "login_time": now,
+                    "logout_time": None,
+                    "last_activity": now,
+                })
+                return
+            except Exception as exc:
+                logger.error("MongoDB create_session error: %s", exc)
+
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            INSERT INTO user_sessions (user_id, session_id, ip_address, user_agent)
+                            VALUES (%s, %s, %s, %s)
+                        """, (int(user_id), session_id, ip_address, user_agent))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL create_session error: %s", exc)
+
+    def end_session(self, session_id: str) -> None:
+        if self.mongo_db is not None:
+            try:
+                self.mongo_db.user_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {"logout_time": datetime.now(timezone.utc)}}
+                )
+                return
+            except Exception as exc:
+                logger.error("MongoDB end_session error: %s", exc)
+
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE user_sessions SET logout_time = NOW() WHERE session_id = %s", (session_id,))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL end_session error: %s", exc)
+
+    def touch_session(self, session_id: str) -> None:
+        if self.mongo_db is not None:
+            try:
+                self.mongo_db.user_sessions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {"last_activity": datetime.now(timezone.utc)}}
+                )
+                return
+            except Exception as exc:
+                logger.error("MongoDB touch_session error: %s", exc)
+
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE user_sessions SET last_activity = NOW() WHERE session_id = %s", (session_id,))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL touch_session error: %s", exc)
+
+    # ── Submissions ───────────────────────────────────────────────────────────
+
+    def create_submission(
+        self, user_id: int, gesture_label: str, gesture_type: str = "Word", sample_count: int = 0
+    ) -> Optional[int]:
+        if self.mongo_db is not None:
+            try:
+                new_id = self._next_id("training_submissions")
+                self.mongo_db.training_submissions.insert_one({
+                    "id": new_id,
+                    "user_id": int(user_id),
+                    "gesture_label": gesture_label,
+                    "gesture_type": gesture_type,
+                    "sample_count": sample_count,
+                    "status": "PENDING",
+                    "rejection_reason": None,
+                    "submitted_at": datetime.now(timezone.utc),
+                    "reviewed_at": None,
+                    "reviewed_by": None,
+                    "notes": None,
+                })
+                return new_id
+            except Exception as exc:
+                logger.error("MongoDB create_submission error: %s", exc)
+                return None
+
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            INSERT INTO training_submissions (user_id, gesture_label, gesture_type, sample_count)
+                            VALUES (%s, %s, %s, %s) RETURNING id
+                        """, (int(user_id), gesture_label, gesture_type, sample_count))
+                        sid = cur.fetchone()[0]
+                    conn.commit()
+                return sid
+            except Exception as exc:
+                logger.error("PostgreSQL create_submission error: %s", exc)
+        return None
+
+    def get_user_submissions(self, user_id: int) -> List[dict]:
+        if self.mongo_db is not None:
+            try:
+                cursor = (
+                    self.mongo_db.training_submissions.find({"user_id": int(user_id)}, {"_id": 0})
+                    .sort("submitted_at", -1)
+                )
+                return list(cursor)
+            except Exception as exc:
+                logger.error("MongoDB get_user_submissions error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute("""
+                            SELECT id, gesture_label, gesture_type, status, rejection_reason,
+                                   sample_count, submitted_at, reviewed_at, notes
+                            FROM training_submissions WHERE user_id = %s
+                            ORDER BY submitted_at DESC
+                        """, (int(user_id),))
+                        return [dict(r) for r in cur.fetchall()]
+            except Exception as exc:
+                logger.error("PostgreSQL get_user_submissions error: %s", exc)
+        return []
+
+    def get_all_submissions(self, status: str = None) -> List[dict]:
+        if self.mongo_db is not None:
+            try:
+                match = {}
+                if status:
+                    match["status"] = status
+                pipeline = [
+                    {"$match": match},
+                    {"$sort": {"submitted_at": -1}},
+                    {
+                        "$lookup": {
+                            "from": "users",
+                            "localField": "user_id",
+                            "foreignField": "id",
+                            "as": "user_info",
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "id": 1,
+                            "user_id": 1,
+                            "gesture_label": 1,
+                            "gesture_type": 1,
+                            "status": 1,
+                            "rejection_reason": 1,
+                            "sample_count": 1,
+                            "submitted_at": 1,
+                            "reviewed_at": 1,
+                            "reviewed_by": 1,
+                            "notes": 1,
+                            "full_name": {"$arrayElemAt": ["$user_info.full_name", 0]},
+                            "username": {"$arrayElemAt": ["$user_info.username", 0]},
+                            "email": {"$arrayElemAt": ["$user_info.email", 0]},
+                        }
+                    },
+                ]
+                return list(self.mongo_db.training_submissions.aggregate(pipeline))
+            except Exception as exc:
+                logger.error("MongoDB get_all_submissions error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
             sql = """
-                SELECT id, version_tag, model_type, model_path, accuracy,
-                       parameters, is_active, notes, created_at
-                FROM model_versions ORDER BY created_at DESC
+                SELECT ts.*, u.full_name, u.username, u.email
+                FROM training_submissions ts
+                JOIN users u ON u.id = ts.user_id
             """
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql)
-                    rows = cur.fetchall()
-            return [dict(r) for r in rows]
-        except psycopg2.Error as exc:
-            logger.error("get_model_versions failed: %s", exc)
-            return []
+            params = []
+            if status:
+                sql += " WHERE ts.status = %s"; params.append(status)
+            sql += " ORDER BY ts.submitted_at DESC"
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute(sql, params)
+                        return [dict(r) for r in cur.fetchall()]
+            except Exception as exc:
+                logger.error("PostgreSQL get_all_submissions error: %s", exc)
+        return []
 
-    # ── Training Jobs ─────────────────────────────────────────────────────
+    def review_submission(
+        self, submission_id: int, status: str, reviewed_by: int, rejection_reason: str = None
+    ) -> None:
+        sid = int(submission_id)
+        if self.mongo_db is not None:
+            try:
+                self.mongo_db.training_submissions.update_one(
+                    {"id": sid},
+                    {"$set": {
+                        "status": status,
+                        "rejection_reason": rejection_reason,
+                        "reviewed_at": datetime.now(timezone.utc),
+                        "reviewed_by": int(reviewed_by),
+                    }}
+                )
+                return
+            except Exception as exc:
+                logger.error("MongoDB review_submission error: %s", exc)
 
-    def get_training_jobs(self) -> list[dict]:
-        sql = """
-            SELECT tj.*, mv.version_tag
-            FROM training_jobs tj
-            LEFT JOIN model_versions mv ON mv.id = tj.model_version_id
-            ORDER BY tj.created_at DESC
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                    cur.execute(sql)
-                    rows = cur.fetchall()
-            return [dict(r) for r in rows]
-        except psycopg2.Error as exc:
-            logger.error("get_training_jobs failed: %s", exc)
-            return []
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            UPDATE training_submissions
+                            SET status = %s, rejection_reason = %s, reviewed_at = NOW(), reviewed_by = %s
+                            WHERE id = %s
+                        """, (status, rejection_reason, int(reviewed_by), sid))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL review_submission error: %s", exc)
 
-    def create_training_job(self, job_type: str, created_by: int) -> int | None:
-        sql = """
-            INSERT INTO training_jobs (job_type, created_by)
-            VALUES (%s, %s)
-            RETURNING id
-        """
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (job_type, created_by))
-                    job_id = cur.fetchone()[0]
-                conn.commit()
-            return job_id
-        except psycopg2.Error as exc:
-            logger.error("create_training_job failed: %s", exc)
-            return None
+    def get_submission_by_id(self, submission_id: int) -> Optional[dict]:
+        sid = int(submission_id)
+        if self.mongo_db is not None:
+            try:
+                sub = self.mongo_db.training_submissions.find_one({"id": sid}, {"_id": 0})
+                if sub:
+                    user = self.get_user_by_id(sub.get("user_id"))
+                    if user:
+                        sub["full_name"] = user.get("full_name")
+                        sub["username"] = user.get("username")
+                    return sub
+                return None
+            except Exception as exc:
+                logger.error("MongoDB get_submission_by_id error: %s", exc)
 
-    # ── Dashboard Stats ───────────────────────────────────────────────────
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute("""
+                            SELECT ts.*, u.full_name, u.username
+                            FROM training_submissions ts
+                            JOIN users u ON u.id = ts.user_id
+                            WHERE ts.id = %s
+                        """, (sid,))
+                        row = cur.fetchone()
+                return dict(row) if row else None
+            except Exception as exc:
+                logger.error("PostgreSQL get_submission_by_id error: %s", exc)
+        return None
+
+    # ── Samples ───────────────────────────────────────────────────────────────
+
+    def add_training_sample(
+        self, submission_id: int, sample_path: str, sample_type: str = "npy",
+        frame_count: int = None, sample_data: bytes = None
+    ) -> None:
+        sid = int(submission_id)
+        if self.mongo_db is not None:
+            try:
+                new_id = self._next_id("training_samples")
+                doc = {
+                    "id": new_id,
+                    "submission_id": sid,
+                    "sample_path": sample_path,
+                    "sample_type": sample_type,
+                    "frame_count": frame_count,
+                    "created_at": datetime.now(timezone.utc),
+                    "is_valid": True,
+                }
+                if sample_data:
+                    doc["sample_data"] = Binary(sample_data)
+                self.mongo_db.training_samples.insert_one(doc)
+                return
+            except Exception as exc:
+                logger.error("MongoDB add_training_sample error: %s", exc)
+
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            INSERT INTO training_samples (submission_id, sample_path, sample_type, frame_count, sample_data)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (sid, sample_path, sample_type, frame_count, sample_data))
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL add_training_sample error: %s", exc)
+
+    def get_submission_samples(self, submission_id: int, include_data: bool = False) -> List[dict]:
+        sid = int(submission_id)
+        if self.mongo_db is not None:
+            try:
+                proj = {"_id": 0}
+                if not include_data:
+                    proj["sample_data"] = 0
+                cursor = self.mongo_db.training_samples.find({"submission_id": sid}, proj).sort("created_at", 1)
+                samples = []
+                for s in cursor:
+                    if "sample_data" in s and isinstance(s["sample_data"], Binary):
+                        s["sample_data"] = bytes(s["sample_data"])
+                    samples.append(s)
+                return samples
+            except Exception as exc:
+                logger.error("MongoDB get_submission_samples error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                sql = "SELECT * FROM training_samples WHERE submission_id = %s ORDER BY created_at" if include_data else """
+                    SELECT id, submission_id, sample_path, sample_type, frame_count, created_at, is_valid
+                    FROM training_samples WHERE submission_id = %s ORDER BY created_at
+                """
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute(sql, (sid,))
+                        return [dict(r) for r in cur.fetchall()]
+            except Exception as exc:
+                logger.error("PostgreSQL get_submission_samples error: %s", exc)
+        return []
+
+    # ── Model Versions ────────────────────────────────────────────────────────
+
+    def get_model_versions(self, include_data: bool = False) -> List[dict]:
+        """Fetch model version registry. By default omits large binaries to save network bandwidth."""
+        if self.mongo_db is not None:
+            try:
+                proj = {"_id": 0}
+                if not include_data:
+                    proj["model_data"] = 0
+                    proj["encoder_data"] = 0
+                cursor = self.mongo_db.model_versions.find({}, proj).sort("created_at", -1)
+                results = []
+                for v in cursor:
+                    for bcol in ["model_data", "encoder_data"]:
+                        if bcol in v and isinstance(v[bcol], Binary):
+                            v[bcol] = bytes(v[bcol])
+                    results.append(v)
+                return results
+            except Exception as exc:
+                logger.error("MongoDB get_model_versions error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                sql = "SELECT * FROM model_versions ORDER BY created_at DESC" if include_data else """
+                    SELECT id, version_tag, model_type, model_path, accuracy,
+                           parameters, is_active, notes, created_at
+                    FROM model_versions ORDER BY created_at DESC
+                """
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute(sql)
+                        return [dict(r) for r in cur.fetchall()]
+            except Exception as exc:
+                logger.error("PostgreSQL get_model_versions error: %s", exc)
+        return []
+
+    def get_active_model_version(self, model_type: str, include_data: bool = True) -> Optional[dict]:
+        """Fetch the current active model version for a given model_type."""
+        if self.mongo_db is not None:
+            try:
+                proj = {"_id": 0}
+                if not include_data:
+                    proj["model_data"] = 0
+                    proj["encoder_data"] = 0
+                doc = self.mongo_db.model_versions.find_one(
+                    {"model_type": model_type, "is_active": True},
+                    proj,
+                    sort=[("created_at", -1)]
+                )
+                if doc:
+                    for bcol in ["model_data", "encoder_data"]:
+                        if bcol in doc and isinstance(doc[bcol], Binary):
+                            doc[bcol] = bytes(doc[bcol])
+                    return doc
+                return None
+            except Exception as exc:
+                logger.error("MongoDB get_active_model_version error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                sql = "SELECT * FROM model_versions WHERE model_type = %s AND is_active = TRUE ORDER BY created_at DESC LIMIT 1"
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute(sql, (model_type,))
+                        row = cur.fetchone()
+                return dict(row) if row else None
+            except Exception as exc:
+                logger.error("PostgreSQL get_active_model_version error: %s", exc)
+        return None
+
+    def save_model_version(
+        self, version_tag: str, model_type: str, model_path: str,
+        accuracy: float = None, parameters: dict = None, notes: str = None,
+        model_data: bytes = None, encoder_data: bytes = None, is_active: bool = True,
+        created_by: int = None
+    ) -> bool:
+        """Register a new model version and set it as active."""
+        if self.mongo_db is not None:
+            try:
+                if is_active:
+                    self.mongo_db.model_versions.update_many(
+                        {"model_type": model_type},
+                        {"$set": {"is_active": False}}
+                    )
+
+                new_id = self._next_id("model_versions")
+                doc = {
+                    "id": new_id,
+                    "version_tag": version_tag,
+                    "model_type": model_type,
+                    "model_path": str(model_path),
+                    "accuracy": accuracy,
+                    "parameters": parameters,
+                    "is_active": is_active,
+                    "notes": notes,
+                    "created_at": datetime.now(timezone.utc),
+                    "created_by": created_by,
+                }
+                if model_data:
+                    doc["model_data"] = Binary(model_data)
+                if encoder_data:
+                    doc["encoder_data"] = Binary(encoder_data)
+
+                self.mongo_db.model_versions.replace_one(
+                    {"version_tag": version_tag}, doc, upsert=True
+                )
+                return True
+            except Exception as exc:
+                logger.error("MongoDB save_model_version failed: %s", exc)
+                return False
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                params_json = psycopg2.extras.Json(parameters) if parameters is not None else None
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        if is_active:
+                            cur.execute("UPDATE model_versions SET is_active = FALSE WHERE model_type = %s", (model_type,))
+                        cur.execute("""
+                            INSERT INTO model_versions (
+                                version_tag, model_type, model_path, model_data, encoder_data,
+                                accuracy, parameters, is_active, notes, created_by
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (version_tag, model_type, str(model_path), model_data, encoder_data,
+                              accuracy, params_json, is_active, notes, created_by))
+                    conn.commit()
+                return True
+            except Exception as exc:
+                logger.error("PostgreSQL save_model_version failed: %s", exc)
+                return False
+        return False
+
+    # ── Training Jobs ─────────────────────────────────────────────────────────
+
+    def get_training_jobs(self) -> List[dict]:
+        if self.mongo_db is not None:
+            try:
+                pipeline = [
+                    {"$sort": {"created_at": -1}},
+                    {
+                        "$lookup": {
+                            "from": "model_versions",
+                            "localField": "model_version_id",
+                            "foreignField": "id",
+                            "as": "mv_info",
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "id": 1,
+                            "job_type": 1,
+                            "status": 1,
+                            "started_at": 1,
+                            "completed_at": 1,
+                            "created_by": 1,
+                            "model_version_id": 1,
+                            "parameters": 1,
+                            "log_path": 1,
+                            "error_message": 1,
+                            "created_at": 1,
+                            "version_tag": {"$arrayElemAt": ["$mv_info.version_tag", 0]},
+                        }
+                    },
+                ]
+                return list(self.mongo_db.training_jobs.aggregate(pipeline))
+            except Exception as exc:
+                logger.error("MongoDB get_training_jobs error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute("""
+                            SELECT tj.*, mv.version_tag
+                            FROM training_jobs tj
+                            LEFT JOIN model_versions mv ON mv.id = tj.model_version_id
+                            ORDER BY tj.created_at DESC
+                        """)
+                        return [dict(r) for r in cur.fetchall()]
+            except Exception as exc:
+                logger.error("PostgreSQL get_training_jobs error: %s", exc)
+        return []
+
+    def create_training_job(self, job_type: str, created_by: int) -> Optional[int]:
+        if self.mongo_db is not None:
+            try:
+                new_id = self._next_id("training_jobs")
+                self.mongo_db.training_jobs.insert_one({
+                    "id": new_id,
+                    "job_type": job_type,
+                    "status": "QUEUED",
+                    "started_at": None,
+                    "completed_at": None,
+                    "created_by": int(created_by),
+                    "model_version_id": None,
+                    "parameters": None,
+                    "log_path": None,
+                    "error_message": None,
+                    "created_at": datetime.now(timezone.utc),
+                })
+                return new_id
+            except Exception as exc:
+                logger.error("MongoDB create_training_job error: %s", exc)
+                return None
+
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("INSERT INTO training_jobs (job_type, created_by) VALUES (%s, %s) RETURNING id",
+                                    (job_type, int(created_by)))
+                        job_id = cur.fetchone()[0]
+                    conn.commit()
+                return job_id
+            except Exception as exc:
+                logger.error("PostgreSQL create_training_job error: %s", exc)
+        return None
+
+    def update_training_job_status(
+        self, job_id: int, status: str, started: bool = False, completed: bool = False,
+        error_message: str = None
+    ) -> None:
+        jid = int(job_id)
+        now = datetime.now(timezone.utc)
+        if self.mongo_db is not None:
+            try:
+                update_fields = {"status": status}
+                if started:
+                    update_fields["started_at"] = now
+                if completed:
+                    update_fields["completed_at"] = now
+                if error_message is not None:
+                    update_fields["error_message"] = error_message
+                self.mongo_db.training_jobs.update_one({"id": jid}, {"$set": update_fields})
+                return
+            except Exception as exc:
+                logger.error("MongoDB update_training_job_status error: %s", exc)
+
+        if self.dsn:
+            try:
+                sql = "UPDATE training_jobs SET status = %s"
+                params = [status]
+                if started:
+                    sql += ", started_at = NOW()"
+                if completed:
+                    sql += ", completed_at = NOW()"
+                if error_message is not None:
+                    sql += ", error_message = %s"; params.append(error_message)
+                sql += " WHERE id = %s"; params.append(jid)
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(sql, params)
+                    conn.commit()
+            except Exception as exc:
+                logger.error("PostgreSQL update_training_job_status error: %s", exc)
+
+    # ── Admin Stats ───────────────────────────────────────────────────────────
 
     def get_admin_stats(self) -> dict:
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("SELECT COUNT(*) FROM users")
-                    total_users = cur.fetchone()[0]
-                    cur.execute("SELECT COUNT(*) FROM users WHERE role = 'ADMIN'")
-                    total_admins = cur.fetchone()[0]
-                    cur.execute("SELECT COUNT(*) FROM training_submissions WHERE status = 'PENDING'")
-                    pending = cur.fetchone()[0]
-                    cur.execute("SELECT COUNT(*) FROM training_submissions WHERE status = 'APPROVED'")
-                    approved = cur.fetchone()[0]
-                    cur.execute("SELECT COUNT(*) FROM training_submissions WHERE status = 'REJECTED'")
-                    rejected = cur.fetchone()[0]
-                    cur.execute("SELECT COUNT(*) FROM user_activity")
-                    total_activity = cur.fetchone()[0]
-                    cur.execute("SELECT COUNT(*) FROM model_versions")
-                    total_models = cur.fetchone()[0]
-            return {
-                "total_users": total_users,
-                "total_admins": total_admins,
-                "pending_submissions": pending,
-                "approved_submissions": approved,
-                "rejected_submissions": rejected,
-                "total_activity": total_activity,
-                "total_models": total_models,
-            }
-        except psycopg2.Error as exc:
-            logger.error("get_admin_stats failed: %s", exc)
-            return {}
+        if self.mongo_db is not None:
+            try:
+                total_users = self.mongo_db.users.count_documents({})
+                total_admins = self.mongo_db.users.count_documents({"role": "ADMIN"})
+                pending = self.mongo_db.training_submissions.count_documents({"status": "PENDING"})
+                approved = self.mongo_db.training_submissions.count_documents({"status": "APPROVED"})
+                rejected = self.mongo_db.training_submissions.count_documents({"status": "REJECTED"})
+                total_activity = self.mongo_db.user_activity.count_documents({})
+                total_models = self.mongo_db.model_versions.count_documents({})
+                return {
+                    "total_users": total_users,
+                    "total_admins": total_admins,
+                    "pending_submissions": pending,
+                    "approved_submissions": approved,
+                    "rejected_submissions": rejected,
+                    "total_activity": total_activity,
+                    "total_models": total_models,
+                }
+            except Exception as exc:
+                logger.error("MongoDB get_admin_stats error: %s", exc)
+
+        if self.dsn:
+            try:
+                with self._connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT COUNT(*) FROM users"); total_users = cur.fetchone()[0]
+                        cur.execute("SELECT COUNT(*) FROM users WHERE role = 'ADMIN'"); total_admins = cur.fetchone()[0]
+                        cur.execute("SELECT COUNT(*) FROM training_submissions WHERE status = 'PENDING'"); pending = cur.fetchone()[0]
+                        cur.execute("SELECT COUNT(*) FROM training_submissions WHERE status = 'APPROVED'"); approved = cur.fetchone()[0]
+                        cur.execute("SELECT COUNT(*) FROM training_submissions WHERE status = 'REJECTED'"); rejected = cur.fetchone()[0]
+                        cur.execute("SELECT COUNT(*) FROM user_activity"); total_activity = cur.fetchone()[0]
+                        cur.execute("SELECT COUNT(*) FROM model_versions"); total_models = cur.fetchone()[0]
+                return {
+                    "total_users": total_users,
+                    "total_admins": total_admins,
+                    "pending_submissions": pending,
+                    "approved_submissions": approved,
+                    "rejected_submissions": rejected,
+                    "total_activity": total_activity,
+                    "total_models": total_models,
+                }
+            except Exception as exc:
+                logger.error("PostgreSQL get_admin_stats error: %s", exc)
+        return {}

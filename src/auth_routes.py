@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
-    session, flash, jsonify, abort, Response,
+    session, flash, jsonify, abort, Response, send_file,
 )
 
 from src.auth_models import UserManager
@@ -402,11 +402,135 @@ def trigger_retrain():
     return redirect(url_for("auth.admin_dashboard"))
 
 
+# ── In-memory metadata caches to protect Atlas from concurrent image requests ──
+_SUBMISSION_META_CACHE: dict = {}
+_SAMPLE_META_CACHE: dict = {}
+
+
+def _resolve_sample_file(sample: dict, sub: Optional[dict] = None) -> tuple[Optional[object], str]:
+    from pathlib import Path
+    import config
+
+    sid = sample.get("submission_id")
+    raw_path_str = sample.get("sample_path", "")
+    p = Path(raw_path_str) if raw_path_str else None
+
+    # Fetch submission details for label and gesture_type (from cache if available)
+    if sub is None and sid:
+        sub = _SUBMISSION_META_CACHE.get(sid)
+        if sub is None:
+            try:
+                sub = _mgr().get_submission_by_id(sid)
+                if sub:
+                    _SUBMISSION_META_CACHE[sid] = sub
+            except Exception:
+                sub = None
+
+    label = (sub.get("gesture_label") if sub else "") or ""
+    gtype = (sub.get("gesture_type") if sub else "Alphabet") or "Alphabet"
+
+    # 1. Direct path exists on disk
+    if p and p.exists():
+        return p, label
+
+    fname = p.name if p else "0000.npy"
+
+    # 2. Check local pending_submissions/<sid>/<fname>
+    if sid:
+        cand_pending = config.DATA_DIR / "pending_submissions" / str(sid) / fname
+        if cand_pending.exists():
+            return cand_pending, label
+        p_dir = config.DATA_DIR / "pending_submissions" / str(sid)
+        if p_dir.exists():
+            all_pending = sorted(p_dir.glob("*.npy"))
+            if all_pending:
+                return all_pending[0], label
+
+    # 3. Check inside processed directories (alphabets or words)
+    target_dir = config.PROCESSED_ALPHABETS_DIR if gtype == "Alphabet" else config.PROCESSED_WORDS_DIR
+    if label:
+        lbl_dir = target_dir / label.upper()
+        if lbl_dir.exists():
+            if sid:
+                pat = sorted(lbl_dir.glob(f"sub_{sid}_s_*.npy"))
+                if pat:
+                    try:
+                        idx_part = int(p.stem) if (p and p.stem.isdigit()) else 0
+                        chosen = lbl_dir / f"sub_{sid}_s_{idx_part}.npy"
+                        if chosen.exists():
+                            return chosen, label
+                    except Exception:
+                        pass
+                    return pat[0], label
+
+            if (lbl_dir / fname).exists():
+                return lbl_dir / fname, label
+
+            any_npy = sorted(lbl_dir.glob("*.npy"))
+            if any_npy:
+                return any_npy[0], label
+
+    # 4. Check in-database sample_data binary
+    if sample.get("sample_data"):
+        return sample["sample_data"], label
+
+    return None, label
+
+
+def _pre_render_samples_batch(samples: list, sub: Optional[dict]):
+    """Background helper to render PNG previews into data/sample/ so GET requests hit static disk directly."""
+    import threading
+    import os
+    from config import SAMPLE_DIR
+    from src.utils import render_sample_preview_png
+
+    def _worker():
+        try:
+            SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+            for s in samples:
+                png_path = SAMPLE_DIR / f"sample_{s['id']}.png"
+                if not (png_path.exists() and png_path.stat().st_size > 0):
+                    source, label = _resolve_sample_file(s, sub=sub)
+                    png_bytes = render_sample_preview_png(source, label=label or "Pose", sample_id=s['id'])
+                    if png_bytes:
+                        tmp_path = SAMPLE_DIR / f"sample_{s['id']}.tmp"
+                        tmp_path.write_bytes(png_bytes)
+                        try:
+                            os.replace(tmp_path, png_path)
+                        except Exception:
+                            if tmp_path.exists():
+                                tmp_path.unlink(missing_ok=True)
+        except Exception as exc:
+            logger.debug("Background sample pre-render notice: %s", exc)
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
+
 @auth_bp.route("/admin/api/submission/<int:submission_id>/samples")
 @admin_required
 def admin_api_submission_samples(submission_id):
     """JSON endpoint for fetching samples of a submission."""
+    # 1. Fetch submission once (and cache it)
+    sub = _SUBMISSION_META_CACHE.get(submission_id)
+    if not sub:
+        try:
+            sub = _mgr().get_submission_by_id(submission_id)
+            if sub:
+                _SUBMISSION_META_CACHE[submission_id] = sub
+        except Exception:
+            sub = None
+
+    # 2. Fetch all samples for this submission in 1 query
     samples = _mgr().get_submission_samples(submission_id)
+
+    # 3. Populate metadata cache for all samples in this submission
+    for s in samples:
+        _SAMPLE_META_CACHE[s["id"]] = (s, sub)
+
+    # 4. Asynchronously pre-generate PNGs in data/sample/
+    _pre_render_samples_batch(samples, sub)
+
     return jsonify([{
         "id": s["id"],
         "sample_path": s["sample_path"],
@@ -420,20 +544,59 @@ def admin_api_submission_samples(submission_id):
 @auth_bp.route("/admin/api/sample/<int:sample_id>/preview")
 @admin_required
 def admin_api_sample_preview(sample_id):
-    """Serve a rendered photo sample (PNG) or video sample (GIF/MP4) for a submission sample."""
-    sample = _mgr().get_sample_by_id(sample_id)
-    if not sample or not sample.get("sample_data"):
-        return abort(404)
+    """Serve a rendered photo sample (PNG) for a submission sample from local data/sample/."""
+    from config import SAMPLE_DIR
+    from src.utils import render_sample_preview_png
+    import os
 
-    from src.utils import render_sample_preview
-    data, mime_type = render_sample_preview(
-        sample["sample_data"],
-        sample_type=sample.get("sample_type", "npy")
-    )
-    if not data:
-        return abort(404)
+    # 1. Fast path: If the PNG preview is already on disk, serve it immediately!
+    png_path = SAMPLE_DIR / f"sample_{sample_id}.png"
+    if png_path.exists() and png_path.stat().st_size > 0:
+        resp = send_file(str(png_path), mimetype="image/png")
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
 
-    return Response(data, mimetype=mime_type)
+    # 2. Look up from fast in-memory cache (zero DB calls!)
+    sample, sub = _SAMPLE_META_CACHE.get(sample_id, (None, None))
+    if not sample:
+        try:
+            sample = _mgr().get_sample_by_id(sample_id)
+            if sample and sample.get("submission_id"):
+                sub = _SUBMISSION_META_CACHE.get(sample["submission_id"])
+        except Exception as exc:
+            logger.warning("Error fetching sample #%s: %s", sample_id, exc)
+            sample = None
+
+    if not sample:
+        fallback_png = render_sample_preview_png(None, label="Gesture", sample_id=sample_id)
+        resp = Response(fallback_png, mimetype="image/png")
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
+
+    try:
+        source, label = _resolve_sample_file(sample, sub=sub)
+        png_bytes = render_sample_preview_png(source, label=label or "Pose", sample_id=sample_id)
+        if not png_bytes:
+            png_bytes = render_sample_preview_png(None, label=label or "Pose", sample_id=sample_id)
+
+        try:
+            SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+            tmp_path = SAMPLE_DIR / f"sample_{sample_id}.tmp"
+            tmp_path.write_bytes(png_bytes)
+            os.replace(tmp_path, png_path)
+        except Exception as exc:
+            logger.debug("Could not cache sample preview PNG: %s", exc)
+
+        resp = Response(png_bytes, mimetype="image/png")
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
+    except Exception as exc:
+        logger.warning("Exception generating preview for sample #%s: %s", sample_id, exc)
+        fallback_png = render_sample_preview_png(None, label="Pose", sample_id=sample_id)
+
+        resp = Response(fallback_png, mimetype="image/png")
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
 
 
 @auth_bp.route("/admin/api/activity")

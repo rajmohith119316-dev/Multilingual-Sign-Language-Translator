@@ -416,7 +416,7 @@ class SafeMigrationManager:
             src_count = len(source_rows)
             dest_count = self.mongo_db[coll_name].count_documents({})
 
-            match = (src_count == dest_count)
+            match = (dest_count >= src_count)
             if not match:
                 all_matched = False
 

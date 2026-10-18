@@ -290,10 +290,14 @@ def run_cloud_retrain(job_id: int):
             samples = mgr.get_submission_samples(sub["id"], include_data=True)
             for idx, s in enumerate(samples):
                 data = s.get("sample_data")
+                sample_path = s.get("sample_path")
+                file_path = label_dir / f"sub_{sub['id']}_s_{idx}.npy"
                 if data:
-                    file_path = label_dir / f"sub_{sub['id']}_s_{idx}.npy"
                     with open(file_path, "wb") as f:
                         f.write(data)
+                elif sample_path and Path(sample_path).exists():
+                    import shutil
+                    shutil.copy2(sample_path, file_path)
 
         # Run training
         from src.train_moe import train_alphabet_expert, train_word_expert

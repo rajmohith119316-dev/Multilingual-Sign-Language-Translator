@@ -47,9 +47,9 @@ class DatabaseManager:
                     config.MONGODB_URI,
                     maxPoolSize=25,
                     minPoolSize=2,
-                    serverSelectionTimeoutMS=2000,
-                    connectTimeoutMS=2000,
-                    socketTimeoutMS=5000,
+                    serverSelectionTimeoutMS=10000,
+                    connectTimeoutMS=10000,
+                    socketTimeoutMS=20000,
                     retryWrites=True,
                 )
                 # Verify connectivity with ping

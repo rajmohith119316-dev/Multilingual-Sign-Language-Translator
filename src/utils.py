@@ -291,6 +291,197 @@ def resize_frame(frame: np.ndarray, w: int, h: int) -> np.ndarray:
     return cv2.resize(frame, (w, h), interpolation=cv2.INTER_LINEAR)
 
 
+def render_sample_preview_png(
+    sample_data_or_path=None,
+    width: int = 260,
+    height: int = 260,
+    label: str = "Gesture Sample",
+    sample_id: int | None = None,
+) -> Optional[bytes]:
+    """
+    Renders visual photo pose (PNG) for a training sample.
+    Supports .npy landmark array, file path on disk, or raw bytes.
+    Saves or returns a clean, high-contrast 260x260 PNG for admin review.
+    If source is missing, renders an informative stylized pose card so it never fails with error.
+    """
+    import io
+    from pathlib import Path
+
+    arr = None
+    if isinstance(sample_data_or_path, np.ndarray):
+        arr = sample_data_or_path
+    elif isinstance(sample_data_or_path, (str, Path)):
+        p = Path(sample_data_or_path)
+        if p.exists():
+            if p.suffix.lower() in (".png", ".jpg", ".jpeg"):
+                return p.read_bytes()
+            try:
+                arr = np.load(str(p), allow_pickle=True)
+            except Exception as exc:
+                logger.error("Failed to load sample array from %s: %s", p, exc)
+    elif isinstance(sample_data_or_path, (bytes, bytearray, memoryview)):
+        raw_b = bytes(sample_data_or_path)
+        if raw_b[:4] == b"\x89PNG":
+            return raw_b
+        if raw_b[:3] == b"\xff\xd8\xff":
+            return raw_b
+        try:
+            arr = np.load(io.BytesIO(raw_b), allow_pickle=True)
+        except Exception:
+            try:
+                if len(raw_b) >= 240 and len(raw_b) % 4 == 0:
+                    cand = np.frombuffer(raw_b, dtype=np.float32)
+                    if cand.size == 60:
+                        arr = cand.reshape(60)
+                    elif cand.size > 0 and cand.size % 123 == 0:
+                        arr = cand.reshape(-1, 123)
+                    elif cand.size > 0 and cand.size % 60 == 0:
+                        arr = cand.reshape(-1, 60)
+            except Exception as exc:
+                logger.debug("Non-numpy sample bytes buffer fallback: %s", exc)
+
+
+    def _draw_fallback_pose_card():
+        card = np.zeros((height, width, 3), dtype=np.uint8)
+        card[:] = (22, 22, 34)
+        cv2.rectangle(card, (8, 8), (width - 8, height - 8), (50, 55, 75), 1, cv2.LINE_AA)
+
+        cx, cy = width // 2, height // 2 - 22
+        cv2.circle(card, (cx, cy), 34, (35, 40, 60), -1)
+        cv2.circle(card, (cx, cy), 34, (0, 240, 255), 2, cv2.LINE_AA)
+        cv2.circle(card, (cx, cy - 8), 10, (0, 255, 140), -1)
+        cv2.ellipse(card, (cx, cy + 18), (18, 12), 0, 180, 360, (0, 240, 255), 2, cv2.LINE_AA)
+
+        display_label = str(label or "Gesture").upper()
+        (tw, th), _ = cv2.getTextSize(display_label, cv2.FONT_HERSHEY_SIMPLEX, 0.65, 2)
+        cv2.putText(card, display_label, ((width - tw) // 2, height // 2 + 34),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (240, 245, 255), 2, cv2.LINE_AA)
+
+        sub_text = f"Sample #{sample_id}" if sample_id else "Recorded Pose"
+        (stw, sth), _ = cv2.getTextSize(sub_text, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+        cv2.putText(card, sub_text, ((width - stw) // 2, height // 2 + 56),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.42, (130, 140, 170), 1, cv2.LINE_AA)
+
+        ok, png = cv2.imencode(".png", card)
+        return png.tobytes() if ok else None
+
+    if arr is None:
+        return _draw_fallback_pose_card()
+
+    try:
+        img = np.zeros((height, width, 3), dtype=np.uint8)
+        img[:] = (18, 18, 30)
+
+        # 1-Frame Alphabet Gesture (shape: (60,))
+        if arr.ndim == 1 and arr.shape[0] == 60:
+            pts = np.vstack([[0.0, 0.0, 0.0], arr.reshape(20, 3)])
+            xs, ys = pts[:, 0], pts[:, 1]
+            pad = 28
+            min_x, max_x = xs.min(), xs.max()
+            min_y, max_y = ys.min(), ys.max()
+            span_x = max(max_x - min_x, 1e-5)
+            span_y = max(max_y - min_y, 1e-5)
+            scale = min((width - 2 * pad) / span_x, (height - 2 * pad) / span_y)
+
+            px = np.int32(pad + (xs - min_x) * scale + (width - 2 * pad - span_x * scale) / 2)
+            py = np.int32(pad + (ys - min_y) * scale + (height - 2 * pad - span_y * scale) / 2)
+
+            # Draw bones
+            for s, e in _HAND_CONNECTIONS:
+                cv2.line(img, (px[s], py[s]), (px[e], py[e]), (230, 235, 255), 3, cv2.LINE_AA)
+
+            # Draw joints
+            for i in range(21):
+                col = (0, 240, 255) if i == 0 else (0, 255, 140) if i in (4, 8, 12, 16, 20) else (120, 180, 255)
+                r = 5 if i in (0, 4, 8, 12, 16, 20) else 4
+                cv2.circle(img, (px[i], py[i]), r, col, -1)
+                cv2.circle(img, (px[i], py[i]), r + 1, (255, 255, 255), 1)
+
+        # Multi-Frame Sequence / Word Gesture (shape: (N, 123) or (N, 60))
+        elif arr.ndim == 2:
+            n_frames = arr.shape[0]
+            feat_dim = arr.shape[1]
+            mid_idx = n_frames // 2
+            frame_vec = arr[mid_idx]
+
+            if feat_dim == 123:
+                left_feat = frame_vec[:60]
+                right_feat = frame_vec[60:120]
+                inter = frame_vec[120:123]
+                has_left = not np.all(left_feat == 0)
+                has_right = not np.all(right_feat == 0)
+
+                pts_list = []
+                l_pts, r_pts = None, None
+                if has_left:
+                    l_pts = np.vstack([[0.0, 0.0, 0.0], left_feat.reshape(20, 3)])
+                    pts_list.append(l_pts)
+                if has_right:
+                    r_pts = np.vstack([[-inter[0], -inter[1], -inter[2]], right_feat.reshape(20, 3) - inter])
+                    pts_list.append(r_pts)
+
+                if pts_list:
+                    all_c = np.vstack(pts_list)
+                    xs, ys = all_c[:, 0], all_c[:, 1]
+                    pad = 32
+                    min_x, max_x = xs.min(), xs.max()
+                    min_y, max_y = ys.min(), ys.max()
+                    span_x = max(max_x - min_x, 1e-5)
+                    span_y = max(max_y - min_y, 1e-5)
+                    scale = min((width - 2 * pad) / span_x, (height - 2 * pad) / span_y)
+
+                    def to_px(pts):
+                        px = np.int32(pad + (pts[:, 0] - min_x) * scale + (width - 2 * pad - span_x * scale) / 2)
+                        py = np.int32(pad + (pts[:, 1] - min_y) * scale + (height - 2 * pad - span_y * scale) / 2)
+                        return px, py
+
+                    if has_left and has_right:
+                        lpx, lpy = to_px(l_pts)
+                        rpx, rpy = to_px(r_pts)
+                        cv2.line(img, (lpx[0], lpy[0]), (rpx[0], rpy[0]), (50, 70, 90), 1, cv2.LINE_AA)
+
+                    if has_left:
+                        lpx, lpy = to_px(l_pts)
+                        for s, e in _HAND_CONNECTIONS:
+                            cv2.line(img, (lpx[s], lpy[s]), (lpx[e], lpy[e]), (255, 180, 80), 2, cv2.LINE_AA)
+                        for i in range(21):
+                            cv2.circle(img, (lpx[i], lpy[i]), 4, (255, 220, 0), -1)
+
+                    if has_right:
+                        rpx, rpy = to_px(r_pts)
+                        for s, e in _HAND_CONNECTIONS:
+                            cv2.line(img, (rpx[s], rpy[s]), (rpx[e], rpy[e]), (80, 240, 140), 2, cv2.LINE_AA)
+                        for i in range(21):
+                            cv2.circle(img, (rpx[i], rpy[i]), 4, (0, 255, 160), -1)
+
+            elif feat_dim == 60:
+                pts = np.vstack([[0.0, 0.0, 0.0], frame_vec.reshape(20, 3)])
+                xs, ys = pts[:, 0], pts[:, 1]
+                pad = 28
+                min_x, max_x = xs.min(), xs.max()
+                min_y, max_y = ys.min(), ys.max()
+                span_x = max(max_x - min_x, 1e-5)
+                span_y = max(max_y - min_y, 1e-5)
+                scale = min((width - 2 * pad) / span_x, (height - 2 * pad) / span_y)
+                px = np.int32(pad + (xs - min_x) * scale + (width - 2 * pad - span_x * scale) / 2)
+                py = np.int32(pad + (ys - min_y) * scale + (height - 2 * pad - span_y * scale) / 2)
+                for s, e in _HAND_CONNECTIONS:
+                    cv2.line(img, (px[s], py[s]), (px[e], py[e]), (230, 235, 255), 2, cv2.LINE_AA)
+                for i in range(21):
+                    cv2.circle(img, (px[i], py[i]), 4, (0, 240, 255), -1)
+            else:
+                return _draw_fallback_pose_card()
+        else:
+            return _draw_fallback_pose_card()
+
+        cv2.putText(img, "Pose Preview", (10, height - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (150, 150, 175), 1, cv2.LINE_AA)
+        ok, png = cv2.imencode(".png", img)
+        return png.tobytes() if ok else _draw_fallback_pose_card()
+    except Exception as exc:
+        logger.warning("Error rendering pose landmarks for sample %s: %s", sample_id, exc)
+        return _draw_fallback_pose_card()
+
+
 def render_sample_preview(
     sample_data: bytes,
     sample_type: str = "npy",

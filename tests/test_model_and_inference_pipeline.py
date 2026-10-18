@@ -62,8 +62,10 @@ class TestModelAndInferencePipeline(unittest.TestCase):
         if norm > 0:
             dummy_input /= norm
 
+        enc = joblib.load(str(config.ALPHABET_ENCODER_PATH))
+        num_alpha_classes = len(enc.classes_)
         output = model.predict(dummy_input, verbose=0)
-        self.assertEqual(output.shape, (1, 4), "Alphabet output shape must match 4 classes ['A', 'B', 'C', 'D']")
+        self.assertEqual(output.shape, (1, num_alpha_classes), f"Alphabet output shape must match {num_alpha_classes} classes {list(enc.classes_)}")
         self.assertAlmostEqual(float(np.sum(output[0])), 1.0, places=3, msg="Softmax output probabilities must sum to 1")
 
     def test_05_word_model_loading_and_inference(self):
@@ -80,7 +82,8 @@ class TestModelAndInferencePipeline(unittest.TestCase):
         dummy_seq = np.random.randn(1, seq_len, feat_dim).astype(np.float32)
         output = model.predict(dummy_seq, verbose=0)
         self.assertEqual(output.shape[0], 1)
-        self.assertEqual(output.shape[1], 1, "Word output shape must match 1 class ['CHOCOLATE']")
+        w_enc = joblib.load(str(config.WORD_ENCODER_PATH))
+        self.assertEqual(output.shape[1], len(w_enc.classes_), f"Word output shape must match {len(w_enc.classes_)} classes {list(w_enc.classes_)}")
 
     def test_06_zero_database_calls_during_feature_inference(self):
         """CRITICAL: Real-time inference loop must never invoke database operations per frame."""

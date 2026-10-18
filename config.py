@@ -37,6 +37,7 @@ PROCESSED_ALPHABETS_DIR = PROCESSED_DIR / "alphabets"   # .npy (60,)
 PROCESSED_WORDS_DIR     = PROCESSED_DIR / "words"       # .npy (30, 123)
 
 TEACH_TEMP_DIR = DATA_DIR / "teach_temp"
+SAMPLE_DIR     = DATA_DIR / "sample"
 
 # ─── Model / Asset Paths ──────────────────────────────────────────────────────
 MODEL_DIR = BASE_DIR / "models"
@@ -145,7 +146,7 @@ for _d in (
     DATA_DIR, RAW_DIR, RAW_ALPHABETS_DIR, RAW_WORDS_DIR,
     RAW_VIDEOS_DIR, SEQUENCES_DIR,
     PROCESSED_DIR, PROCESSED_ALPHABETS_DIR, PROCESSED_WORDS_DIR,
-    MODEL_DIR, LOGS_DIR, TEACH_TEMP_DIR,
+    MODEL_DIR, LOGS_DIR, TEACH_TEMP_DIR, SAMPLE_DIR,
 ):
     _d.mkdir(parents=True, exist_ok=True)
 

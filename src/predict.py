@@ -105,6 +105,7 @@ class GesturePredictor:
         self._word_eval_counter: int = 0
         self._last_word_eval: tuple[Optional[str], float] = (None, 0.0)
         self._padded_buf: Optional[np.ndarray] = None
+        self._hand_count_history: collections.deque = collections.deque(maxlen=4)
 
         # Load everything
         self._load_all()
@@ -255,6 +256,7 @@ class GesturePredictor:
             self._current_mode  = MODE_IDLE
             self._last_word_eval = (None, 0.0)
             self._word_eval_counter = 0
+            self._hand_count_history.clear()
 
     @property
     def mode_preference(self) -> str:
@@ -375,21 +377,43 @@ class GesturePredictor:
                 ))
             return unpadded
 
-        left_lm  = None
-        right_lm = None
+        num_detected = len(result.hand_landmarks)
+        if num_detected == 0:
+            return None, None, 0
 
-        for i, lm_list in enumerate(result.hand_landmarks):
-            if i >= len(result.handedness):
-                break
-            side = result.handedness[i][0].category_name.lower()
-            unpadded = _unpad_lm_list(lm_list)
+        if num_detected == 1:
+            lm = _unpad_lm_list(result.hand_landmarks[0])
+            side = result.handedness[0][0].category_name.lower() if result.handedness and result.handedness[0] else "right"
             if side == "left":
-                right_lm = unpadded
+                right_lm = lm
+                left_lm = None
             else:
-                left_lm  = unpadded
+                left_lm = lm
+                right_lm = None
+            return left_lm, right_lm, 1
 
-        n_hands = (1 if left_lm is not None else 0) + (1 if right_lm is not None else 0)
-        return left_lm, right_lm, n_hands
+        # num_detected >= 2 hands detected
+        lm0 = _unpad_lm_list(result.hand_landmarks[0])
+        lm1 = _unpad_lm_list(result.hand_landmarks[1])
+        side0 = result.handedness[0][0].category_name.lower() if len(result.handedness) > 0 and result.handedness[0] else "left"
+        side1 = result.handedness[1][0].category_name.lower() if len(result.handedness) > 1 and result.handedness[1] else "right"
+
+        if side0 != side1:
+            if side0 == "left":
+                right_lm, left_lm = lm0, lm1
+            else:
+                left_lm, right_lm = lm0, lm1
+        else:
+            # Handedness collision from MediaPipe (e.g. both labeled 'Right' or both 'Left')
+            # Separate by horizontal position in image:
+            wrist0_x = lm0[0].x
+            wrist1_x = lm1[0].x
+            if wrist0_x < wrist1_x:
+                right_lm, left_lm = lm0, lm1
+            else:
+                right_lm, left_lm = lm1, lm0
+
+        return left_lm, right_lm, 2
 
     # ── Model Evaluators ──────────────────────────────────────────────────────
 
@@ -479,10 +503,10 @@ class GesturePredictor:
         where result_tuple is (predicted_label, confidence, mode)
         """
         with self._lock:
-            left_lm, right_lm, n_hands = self.detect_hands(bgr_frame)
+            left_lm, right_lm, raw_n_hands = self.detect_hands(bgr_frame)
 
             # ── 0 hands: Idle Debounce ────────────────────────────────────────
-            if n_hands == 0:
+            if raw_n_hands == 0:
                 self._idle_frames += 1
                 if self._idle_frames >= 4:
                     self._current_mode = MODE_IDLE
@@ -490,13 +514,18 @@ class GesturePredictor:
                     self._word_stable  = 0
                     self._word_buffer.clear()
                     self._last_word_eval = (None, 0.0)
-                return None, left_lm, right_lm, n_hands
+                    self._hand_count_history.clear()
+                return None, left_lm, right_lm, 0
 
             self._idle_frames = 0
+            self._hand_count_history.append(raw_n_hands)
 
-            # Always accumulate dual-hand features when hands are present
-            feat_123 = extract_dual_hand_features(left_lm, right_lm)
-            self._word_buffer.append(feat_123)
+            # Smooth hand count: if user was in WORD mode with 2 hands,
+            # allow a 2-frame grace period for momentary occlusion while gesturing
+            if self._current_mode == MODE_WORD and raw_n_hands == 1 and self._hand_count_history.count(2) >= 2:
+                effective_n_hands = 2
+            else:
+                effective_n_hands = raw_n_hands
 
             # Determine routing mode preference
             pref = self._mode_preference
@@ -506,17 +535,21 @@ class GesturePredictor:
                 target_mode = MODE_WORD
             else:
                 # AUTO Mode:
-                # 2 hands -> strictly WORD
-                # 1 hand  -> ALPHABET default, with fallback to WORD if dynamic sign detected
-                target_mode = MODE_WORD if n_hands >= 2 else MODE_ALPHABET
+                # 2 hands -> strictly WORD Expert (spatio-temporal dual-hand gesture)
+                # 1 hand  -> strictly ALPHABET Expert (static single-hand shape)
+                target_mode = MODE_WORD if effective_n_hands >= 2 else MODE_ALPHABET
 
-            # ── Forced Word Mode or Dual-Hand Detected ─────────────────────────
+            # ── Word Mode (Dual-Hand in AUTO or Explicit WORD Preference) ───────
             if target_mode == MODE_WORD:
                 self._current_mode = MODE_WORD
                 self._alpha_stable = 0
 
+                # Accumulate dual-hand features for Word Expert
+                feat_123 = extract_dual_hand_features(left_lm, right_lm)
+                self._word_buffer.append(feat_123)
+
                 if len(self._word_buffer) < 15:
-                    return None, left_lm, right_lm, n_hands
+                    return None, left_lm, right_lm, raw_n_hands
 
                 self._word_eval_counter += 1
                 if self._word_eval_counter % 2 == 0 or self._last_word_eval[0] is None:
@@ -525,32 +558,23 @@ class GesturePredictor:
 
                 if word_label is not None and word_conf >= self._conf_thresh:
                     res = self._filter_word(word_label, word_conf)
-                    return res, left_lm, right_lm, n_hands
+                    return res, left_lm, right_lm, raw_n_hands
 
-                return None, left_lm, right_lm, n_hands
+                return None, left_lm, right_lm, raw_n_hands
 
-            # ── Alphabet Mode (or AUTO with 1 hand) ────────────────────────────
+            # ── Alphabet Mode (Single-Hand in AUTO or Explicit ALPHABET) ───────
             self._current_mode = MODE_ALPHABET
             self._word_stable = 0
+            # Reset word buffer so single-hand static frames don't bleed into future words
+            self._word_buffer.clear()
+            self._last_word_eval = (None, 0.0)
 
             active_lm = left_lm if left_lm is not None else right_lm
             feat_60 = extract_single_hand_features(active_lm)
             alpha_label, alpha_conf = self._eval_alphabet(feat_60)
 
-            # In AUTO mode with sufficient word buffer, also check if dynamic word is being signed
-            if pref == "AUTO" and self.is_word_ready and len(self._word_buffer) >= 15:
-                self._word_eval_counter += 1
-                if self._word_eval_counter % 2 == 0 or self._last_word_eval[0] is None:
-                    self._last_word_eval = self._eval_word()
-                word_label, word_conf = self._last_word_eval
-
-                if word_label is not None and word_conf >= 0.75 and (alpha_conf < 0.70 or word_conf > alpha_conf + 0.05):
-                    self._current_mode = MODE_WORD
-                    res = self._filter_word(word_label, word_conf)
-                    return res, left_lm, right_lm, n_hands
-
             if alpha_label is not None and alpha_conf >= self._conf_thresh:
                 res = self._filter_alphabet(alpha_label, alpha_conf)
-                return res, left_lm, right_lm, n_hands
+                return res, left_lm, right_lm, raw_n_hands
 
-            return None, left_lm, right_lm, n_hands
+            return None, left_lm, right_lm, raw_n_hands

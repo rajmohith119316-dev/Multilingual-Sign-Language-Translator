@@ -55,9 +55,9 @@ class UserManager:
                     config.MONGODB_URI,
                     maxPoolSize=25,
                     minPoolSize=2,
-                    serverSelectionTimeoutMS=2000,
-                    connectTimeoutMS=2000,
-                    socketTimeoutMS=5000,
+                    serverSelectionTimeoutMS=10000,
+                    connectTimeoutMS=10000,
+                    socketTimeoutMS=20000,
                     retryWrites=True,
                 )
                 self.mongo_client.admin.command("ping")
@@ -827,7 +827,6 @@ class UserManager:
                         "reviewed_by": int(reviewed_by),
                     }}
                 )
-                return
             except Exception as exc:
                 logger.error("MongoDB review_submission error: %s", exc)
 
@@ -843,6 +842,25 @@ class UserManager:
                     conn.commit()
             except Exception as exc:
                 logger.error("PostgreSQL review_submission error: %s", exc)
+
+        # Delete local PNG sample previews in data/sample/ after review
+        try:
+            from config import SAMPLE_DIR, DATA_DIR
+            samples = self.get_submission_samples(sid, include_data=False)
+            for s in samples:
+                png_file = SAMPLE_DIR / f"sample_{s['id']}.png"
+                if png_file.exists():
+                    png_file.unlink(missing_ok=True)
+            for p in SAMPLE_DIR.glob(f"*{sid}*.png"):
+                p.unlink(missing_ok=True)
+
+            if status == "REJECTED":
+                p_dir = DATA_DIR / "pending_submissions" / str(sid)
+                if p_dir.exists():
+                    import shutil
+                    shutil.rmtree(p_dir, ignore_errors=True)
+        except Exception as e:
+            logger.warning("Error cleaning up sample files for submission %s: %s", sid, e)
 
     def get_submission_by_id(self, submission_id: int) -> Optional[dict]:
         sid = int(submission_id)
@@ -880,9 +898,14 @@ class UserManager:
 
     def add_training_sample(
         self, submission_id: int, sample_path: str, sample_type: str = "npy",
-        frame_count: int = None, sample_data: bytes = None
-    ) -> None:
+        frame_count: int = None, sample_data: bytes = None, store_in_cloud: bool = False
+    ) -> Optional[int]:
+        """
+        Add sample record. Does NOT store binary photos/blobs in cloud DB (MongoDB Atlas)
+        by default, storing only metadata and maintaining local PNG previews in data/sample/.
+        """
         sid = int(submission_id)
+        new_id = None
         if self.mongo_db is not None:
             try:
                 new_id = self._next_id("training_samples")
@@ -895,24 +918,99 @@ class UserManager:
                     "created_at": datetime.now(timezone.utc),
                     "is_valid": True,
                 }
-                if sample_data:
+                from pathlib import Path
+                # Do NOT store binary photo/array in cloud database when file exists on disk
+                if sample_data and (store_in_cloud or not (sample_path and Path(sample_path).exists())):
                     doc["sample_data"] = Binary(sample_data)
                 self.mongo_db.training_samples.insert_one(doc)
-                return
             except Exception as exc:
                 logger.error("MongoDB add_training_sample error: %s", exc)
 
         if self.dsn:
             try:
+                from pathlib import Path
+                save_data = sample_data if (store_in_cloud or not (sample_path and Path(sample_path).exists())) else None
                 with self._connect() as conn:
                     with conn.cursor() as cur:
                         cur.execute("""
                             INSERT INTO training_samples (submission_id, sample_path, sample_type, frame_count, sample_data)
                             VALUES (%s, %s, %s, %s, %s)
-                        """, (sid, sample_path, sample_type, frame_count, sample_data))
+                            RETURNING id
+                        """, (sid, sample_path, sample_type, frame_count, save_data))
+                        row = cur.fetchone()
+                        if row and not new_id:
+                            new_id = row[0]
                     conn.commit()
             except Exception as exc:
                 logger.error("PostgreSQL add_training_sample error: %s", exc)
+
+        # Generate local PNG preview in data/sample/ folder for admin review
+        if new_id:
+            try:
+                from config import SAMPLE_DIR
+                from src.utils import render_sample_preview_png
+                from pathlib import Path
+                SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
+                png_file = SAMPLE_DIR / f"sample_{new_id}.png"
+                source = sample_path if sample_path and Path(sample_path).exists() else sample_data
+                if source:
+                    png_bytes = render_sample_preview_png(source)
+                    if png_bytes:
+                        png_file.write_bytes(png_bytes)
+            except Exception as e:
+                logger.debug("Automatic sample PNG preview generation skipped: %s", e)
+
+        return new_id
+
+    def get_sample_by_id(self, sample_id: int, include_data: bool = False) -> Optional[dict]:
+        """Fetch a single sample by its ID."""
+        sid = int(sample_id)
+        if self.mongo_db is not None:
+            try:
+                proj = {"_id": 0}
+                if not include_data:
+                    proj["sample_data"] = 0
+                doc = self.mongo_db.training_samples.find_one({"id": sid}, proj)
+                if doc:
+                    if "sample_data" in doc and isinstance(doc["sample_data"], Binary):
+                        doc["sample_data"] = bytes(doc["sample_data"])
+                    elif include_data and not doc.get("sample_data"):
+                        sp = doc.get("sample_path")
+                        if sp:
+                            from pathlib import Path
+                            p = Path(sp)
+                            if p.exists():
+                                doc["sample_data"] = p.read_bytes()
+                    return doc
+                return None
+            except Exception as exc:
+                logger.error("MongoDB get_sample_by_id error: %s", exc)
+
+        if self.dsn:
+            import psycopg2.extras
+            try:
+                sql = "SELECT * FROM training_samples WHERE id = %s" if include_data else """
+                    SELECT id, submission_id, sample_path, sample_type, frame_count, created_at, is_valid
+                    FROM training_samples WHERE id = %s
+                """
+                with self._connect() as conn:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        cur.execute(sql, (sid,))
+                        row = cur.fetchone()
+                if row:
+                    doc = dict(row)
+                    if include_data and not doc.get("sample_data"):
+                        sp = doc.get("sample_path")
+                        if sp:
+                            from pathlib import Path
+                            p = Path(sp)
+                            if p.exists():
+                                doc["sample_data"] = p.read_bytes()
+                    return doc
+                return None
+            except Exception as exc:
+                logger.error("PostgreSQL get_sample_by_id error: %s", exc)
+        return None
 
     def get_submission_samples(self, submission_id: int, include_data: bool = False) -> List[dict]:
         sid = int(submission_id)
@@ -926,6 +1024,13 @@ class UserManager:
                 for s in cursor:
                     if "sample_data" in s and isinstance(s["sample_data"], Binary):
                         s["sample_data"] = bytes(s["sample_data"])
+                    elif include_data and not s.get("sample_data"):
+                        sp = s.get("sample_path")
+                        if sp:
+                            from pathlib import Path
+                            p = Path(sp)
+                            if p.exists():
+                                s["sample_data"] = p.read_bytes()
                     samples.append(s)
                 return samples
             except Exception as exc:
@@ -941,7 +1046,15 @@ class UserManager:
                 with self._connect() as conn:
                     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                         cur.execute(sql, (sid,))
-                        return [dict(r) for r in cur.fetchall()]
+                        rows = [dict(r) for r in cur.fetchall()]
+                        if include_data:
+                            for r in rows:
+                                if not r.get("sample_data") and r.get("sample_path"):
+                                    from pathlib import Path
+                                    p = Path(r["sample_path"])
+                                    if p.exists():
+                                        r["sample_data"] = p.read_bytes()
+                        return rows
             except Exception as exc:
                 logger.error("PostgreSQL get_submission_samples error: %s", exc)
         return []

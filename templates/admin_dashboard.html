@@ -1240,6 +1240,8 @@
       renderSamplesContent();
     }
 
+    let currentSamplesLimit = 36;
+
     function renderSamplesContent() {
       const container = document.getElementById('samplesListContainer');
       if (!currentSamplesData || !currentSamplesData.length) {
@@ -1247,9 +1249,13 @@
         return;
       }
 
+      const visibleSamples = currentSamplesData.slice(0, currentSamplesLimit);
+      const hasMore = currentSamplesData.length > currentSamplesLimit;
+      const remainingCount = currentSamplesData.length - currentSamplesLimit;
+
       if (currentSamplesView === 'gallery') {
         let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px;">';
-        currentSamplesData.forEach((s, idx) => {
+        visibleSamples.forEach((s, idx) => {
           const isVideo = (s.frame_count || 1) > 1;
           const typeLabel = isVideo ? '🎞️ Video Sequence' : '📸 Photo Pose';
           html += `
@@ -1259,7 +1265,7 @@
                      alt="Sample #${s.id}" 
                      loading="lazy"
                      style="width: 100%; height: 100%; object-fit: contain;"
-                     onerror="this.parentElement.innerHTML='<span style=\\'color:var(--text-muted); font-size:0.75rem;\\'>Preview error</span>'" />
+                     onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;background:#131326;color:var(--text-muted);font-size:0.75rem;padding:10px;text-align:center;\\'><span style=\\'font-size:1.8rem;margin-bottom:6px;\\'>✋</span><span style=\\'font-weight:600;color:var(--text-secondary);\\'>Recorded Pose</span><span style=\\'font-size:0.68rem;opacity:0.7;margin-top:2px;\\'>Sample #${s.id}</span></div>';" />
                 <span style="position: absolute; top: 6px; left: 6px; font-size: 0.68rem; padding: 2px 6px; background: rgba(0,0,0,0.75); color: #fff; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15);">
                   #${idx + 1}
                 </span>
@@ -1273,16 +1279,31 @@
               </div>
             </div>`;
         });
+
+        if (hasMore) {
+          html += `
+            <div style="grid-column: 1 / -1; display: flex; justify-content: center; padding: 18px 0 6px;">
+              <button type="button" onclick="currentSamplesLimit += 36; renderSamplesContent();" 
+                      style="display: flex; align-items: center; gap: 8px; padding: 10px 22px; font-size: 0.84rem; background: var(--bg-card); border: 1px solid var(--accent); border-radius: 8px; color: var(--accent); cursor: pointer; transition: all 0.2s;"
+                      onmouseover="this.style.background='var(--accent)'; this.style.color='#000';"
+                      onmouseout="this.style.background='var(--bg-card)'; this.style.color='var(--accent)';">
+                <span>⚡ Load Next 36 Samples</span>
+                <span style="font-size: 0.72rem; background: rgba(0,0,0,0.4); padding: 2px 8px; border-radius: 10px;">${remainingCount} more remaining</span>
+              </button>
+            </div>`;
+        }
+
         html += '</div>';
         container.innerHTML = html;
       } else {
         let html = '<table class="data-table" style="margin-bottom: 0;"><thead><tr><th style="width: 105px;">Preview</th><th>Format</th><th>Frames</th><th>Recorded Date</th></tr></thead><tbody>';
-        currentSamplesData.forEach((s, idx) => {
+        visibleSamples.forEach((s, idx) => {
           const isVideo = (s.frame_count || 1) > 1;
           html += `<tr>
             <td style="padding: 6px 10px;">
               <div style="width: 85px; height: 85px; border-radius: 8px; border: 1px solid var(--border); overflow: hidden; background: #0e0e1c;">
-                <img src="${s.preview_url}" alt="Sample #${s.id}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy" />
+                <img src="${s.preview_url}" alt="Sample #${s.id}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy" 
+                     onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;background:#131326;color:var(--text-secondary);font-size:0.75rem;\\'><span style=\\'font-size:1.1rem;margin-right:4px;\\'>✋</span> Pose</div>';" />
               </div>
             </td>
             <td>
@@ -1294,6 +1315,21 @@
             <td style="font-size:0.75rem; color: var(--text-muted);">${s.created_at}</td>
           </tr>`;
         });
+
+        if (hasMore) {
+          html += `<tr>
+            <td colspan="4" style="text-align: center; padding: 16px;">
+              <button type="button" onclick="currentSamplesLimit += 36; renderSamplesContent();" 
+                      style="display: inline-flex; align-items: center; gap: 8px; padding: 9px 20px; font-size: 0.82rem; background: var(--bg-card); border: 1px solid var(--accent); border-radius: 8px; color: var(--accent); cursor: pointer;"
+                      onmouseover="this.style.background='var(--accent)'; this.style.color='#000';"
+                      onmouseout="this.style.background='var(--bg-card)'; this.style.color='var(--accent)';">
+                <span>⚡ Load Next 36 Samples</span>
+                <span style="font-size: 0.72rem; background: rgba(0,0,0,0.4); padding: 2px 7px; border-radius: 10px;">${remainingCount} more</span>
+              </button>
+            </td>
+          </tr>`;
+        }
+
         html += '</tbody></table>';
         container.innerHTML = html;
       }
@@ -1303,6 +1339,7 @@
       document.getElementById('samplesGestureName').innerText = label;
       const container = document.getElementById('samplesListContainer');
       const badge = document.getElementById('samplesCountBadge');
+      currentSamplesLimit = 36;
       if (badge) badge.textContent = 'Loading...';
       container.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem; padding: 25px; text-align: center;">Loading photo & video samples...</p>';
       document.getElementById('samplesModal').classList.add('open');

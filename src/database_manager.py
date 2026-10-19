@@ -43,15 +43,21 @@ class DatabaseManager:
             try:
                 from pymongo import MongoClient
 
-                self.mongo_client = MongoClient(
-                    config.MONGODB_URI,
-                    maxPoolSize=25,
-                    minPoolSize=2,
-                    serverSelectionTimeoutMS=10000,
-                    connectTimeoutMS=10000,
-                    socketTimeoutMS=20000,
-                    retryWrites=True,
-                )
+                mongo_kwargs = {
+                    "maxPoolSize": 25,
+                    "minPoolSize": 2,
+                    "serverSelectionTimeoutMS": 10000,
+                    "connectTimeoutMS": 10000,
+                    "socketTimeoutMS": 20000,
+                    "retryWrites": True,
+                }
+                try:
+                    import certifi
+                    mongo_kwargs["tlsCAFile"] = certifi.where()
+                except ImportError:
+                    pass
+
+                self.mongo_client = MongoClient(config.MONGODB_URI, **mongo_kwargs)
                 # Verify connectivity with ping
                 self.mongo_client.admin.command("ping")
                 self.mongo_db = self.mongo_client[config.MONGODB_DATABASE]
@@ -76,10 +82,43 @@ class DatabaseManager:
         else:
             logger.warning("No live database connected. DatabaseManager running in resilient offline/cache mode.")
 
+    def _ensure_mongo(self) -> bool:
+        if self.backend != "mongodb" or not config.MONGODB_URI:
+            return False
+        if self.mongo_db is not None:
+            return True
+        try:
+            from pymongo import MongoClient
+
+            mongo_kwargs = {
+                "maxPoolSize": 25,
+                "minPoolSize": 2,
+                "serverSelectionTimeoutMS": 4000,
+                "connectTimeoutMS": 4000,
+                "socketTimeoutMS": 8000,
+                "retryWrites": True,
+            }
+            try:
+                import certifi
+                mongo_kwargs["tlsCAFile"] = certifi.where()
+            except ImportError:
+                pass
+
+            self.mongo_client = MongoClient(config.MONGODB_URI, **mongo_kwargs)
+            self.mongo_client.admin.command("ping")
+            self.mongo_db = self.mongo_client[config.MONGODB_DATABASE]
+            self._init_mongo_indexes()
+            logger.info("DatabaseManager auto-reconnected to MongoDB Atlas.")
+            return True
+        except Exception:
+            self.mongo_db = None
+            return False
+
     # ── MongoDB Helpers ────────────────────────────────────────────────────────
 
     def _next_id(self, collection_name: str) -> int:
         """Atomically generate the next sequential integer ID."""
+        self._ensure_mongo()
         if self.mongo_db is None:
             return int(time.time() * 1000) % 1000000000
         try:
@@ -227,6 +266,7 @@ class DatabaseManager:
                 conn.commit()
 
     def get_all_gestures(self) -> List[dict]:
+        self._ensure_mongo()
         if self.mongo_db is not None:
             try:
                 cursor = self.mongo_db.gestures.find({}, {"_id": 0}).sort("gesture_name", 1)
@@ -493,6 +533,7 @@ class DatabaseManager:
 
     def get_stats(self) -> dict:
         if self.backend == "mongodb":
+            self._ensure_mongo()
             if self.mongo_db is not None:
                 try:
                     n_total = self.mongo_db.gestures.count_documents({})

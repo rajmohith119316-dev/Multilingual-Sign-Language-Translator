@@ -102,11 +102,17 @@ class SafeMigrationManager:
         try:
             from pymongo import MongoClient
 
-            self.mongo_client = MongoClient(
-                self.mongo_uri,
-                serverSelectionTimeoutMS=8000,
-                connectTimeoutMS=8000,
-            )
+            mongo_kwargs = {
+                "serverSelectionTimeoutMS": 8000,
+                "connectTimeoutMS": 8000,
+            }
+            try:
+                import certifi
+                mongo_kwargs["tlsCAFile"] = certifi.where()
+            except ImportError:
+                pass
+
+            self.mongo_client = MongoClient(self.mongo_uri, **mongo_kwargs)
             # Test ping
             self.mongo_client.admin.command("ping")
             self.mongo_db = self.mongo_client[self.mongo_db_name]

@@ -218,12 +218,15 @@ def train_new_gesture(
 
     # ── 4. Train Model ────────────────────────────────────────────────────────
     _prog(5, f"Training neural network on {len(X_all)} samples ({epochs} epochs)…")
-    new_model.fit(
+    history = new_model.fit(
         X_all, y_hot,
         epochs=epochs,
         batch_size=min(config.BATCH_SIZE, len(X_all)),
         verbose=1,
     )
+    final_acc = None
+    if history and hasattr(history, "history") and "accuracy" in history.history:
+        final_acc = round(float(history.history["accuracy"][-1]), 4)
 
     # ── 5. Save Artefacts ─────────────────────────────────────────────────────
     _prog(6, "Saving trained model (.h5) and encoder (.pkl)…")
@@ -262,6 +265,7 @@ def train_new_gesture(
             model_path=model_path,
             encoder_path=encoder_path,
             version_tag=vtag,
+            accuracy=final_acc,
             parameters={"classes": new_classes},
             notes=f"Continually trained gesture '{new_word_label}' ({len(X_new)} samples)",
         )

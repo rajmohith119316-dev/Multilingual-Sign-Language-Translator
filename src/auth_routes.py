@@ -540,8 +540,8 @@ def admin_api_submission_samples(submission_id):
         except Exception:
             sub = None
 
-    # 2. Fetch all samples for this submission in 1 query
-    samples = _mgr().get_submission_samples(submission_id)
+    # 2. Fetch all samples for this submission in 1 query (with cloud landmark binary data)
+    samples = _mgr().get_submission_samples(submission_id, include_data=True)
 
     # 3. Populate metadata cache for all samples in this submission
     for s in samples:
@@ -577,9 +577,9 @@ def admin_api_sample_preview(sample_id):
 
     # 2. Look up from fast in-memory cache (zero DB calls!)
     sample, sub = _SAMPLE_META_CACHE.get(sample_id, (None, None))
-    if not sample:
+    if not sample or not sample.get("sample_data"):
         try:
-            sample = _mgr().get_sample_by_id(sample_id)
+            sample = _mgr().get_sample_by_id(sample_id, include_data=True)
             if sample and sample.get("submission_id"):
                 sub = _SUBMISSION_META_CACHE.get(sample["submission_id"])
         except Exception as exc:

@@ -1018,9 +1018,7 @@ class UserManager:
                     "created_at": datetime.now(timezone.utc),
                     "is_valid": True,
                 }
-                from pathlib import Path
-                # Do NOT store binary photo/array in cloud database when file exists on disk
-                if sample_data and (store_in_cloud or not (sample_path and Path(sample_path).exists())):
+                if sample_data:
                     doc["sample_data"] = Binary(sample_data)
                 self.mongo_db.training_samples.insert_one(doc)
             except Exception as exc:

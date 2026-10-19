@@ -25,6 +25,7 @@ Run
 """
 
 import base64
+import io
 import json
 import logging
 import os
@@ -524,12 +525,17 @@ def api_train():
                 for frame in seq_or_frames:
                     path = str(save_dir / f"{sample_idx:04d}.npy")
                     np.save(path, frame)
-                    user_mgr.add_training_sample(sub_id, path, "npy", 1, sample_data=None)
+                    buf = io.BytesIO()
+                    np.save(buf, frame)
+                    user_mgr.add_training_sample(sub_id, path, "npy", 1, sample_data=buf.getvalue(), store_in_cloud=True)
                     sample_idx += 1
             else:
                 path = str(save_dir / f"{sample_idx:04d}.npy")
-                np.save(path, seq_or_frames)
-                user_mgr.add_training_sample(sub_id, path, "npy", len(seq_or_frames), sample_data=None)
+                arr_seq = np.array(seq_or_frames, dtype=np.float32)
+                np.save(path, arr_seq)
+                buf = io.BytesIO()
+                np.save(buf, arr_seq)
+                user_mgr.add_training_sample(sub_id, path, "npy", len(seq_or_frames), sample_data=buf.getvalue(), store_in_cloud=True)
                 sample_idx += 1
 
         user_mgr.log_activity(uid, "TRAINING_SUBMITTED", page="/teach", action=f"Submitted '{label}' ({len(recordings)} samples)", session_id=session.get("session_id"))

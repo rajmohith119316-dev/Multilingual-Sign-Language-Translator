@@ -375,6 +375,10 @@ def api_process_frame():
 
     # Mirror frame to keep MoE features consistent with how they were trained
     frame = mirror_frame(frame)
+
+    if predictor is None:
+        return jsonify({"error": "Predictor initializing. Please wait a moment."}), 503
+
     result, left_lm, right_lm, n_hands = predictor.update(frame)
     mode = predictor.current_mode
 
@@ -387,13 +391,13 @@ def api_process_frame():
 
     if result:
         label, conf, _mode = result
-        tx = translator.process_prediction(label, conf)
+        tx = translator.process_prediction(label, conf) if translator is not None else label
         draw_prediction_banner(frame, label, conf, tx)
         with pred_lock:
             prediction_state["label"] = label
             prediction_state["confidence"] = round(conf, 4)
             prediction_state["translation"] = tx
-            prediction_state["target_language"] = _code_to_name(translator.target_language)
+            prediction_state["target_language"] = _code_to_name(translator.target_language) if translator is not None else "English"
     else:
         if mode == MODE_IDLE or n_hands == 0:
             with pred_lock:
@@ -593,7 +597,7 @@ def api_set_tts():
 @app.route("/api/tts")
 def api_tts():
     """Stream multilingual TTS MP3 audio for given text and language code (kn, hi, ta, te, ml, en, fr, de, es)."""
-    text = request.args.get("text", "").strip()
+    text = request.args.get("text", "").strip()[:200]
     lang = request.args.get("lang", "en").strip().lower()
     if not text or text in ("—", "-", "Translating…"):
         return Response(b"", status=400)
@@ -762,5 +766,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Interrupted by user (Ctrl+C).")
     finally:
-        predictor.close()
+        if predictor is not None and hasattr(predictor, "close"):
+            try:
+                predictor.close()
+            except Exception as _c_err:
+                logger.debug("Error closing predictor: %s", _c_err)
         logger.info("Application exited.")

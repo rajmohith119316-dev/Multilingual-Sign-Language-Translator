@@ -271,16 +271,20 @@ def my_activity():
 @auth_bp.route("/admin")
 @admin_required
 def admin_dashboard():
-    stats = _mgr().get_admin_stats()
-    users = _mgr().get_all_users()
-    submissions = _mgr().get_all_submissions()
-    all_activity = _mgr().get_all_activity(limit=100)
-    model_versions = _mgr().get_model_versions()
-    training_jobs = _mgr().get_training_jobs()
+    mgr = _mgr()
+    mgr._ensure_mongo()
+    is_connected = mgr.mongo_db is not None
+    stats = mgr.get_admin_stats()
+    users = mgr.get_all_users()
+    submissions = mgr.get_all_submissions()
+    all_activity = mgr.get_all_activity(limit=100)
+    model_versions = mgr.get_model_versions()
+    training_jobs = mgr.get_training_jobs()
     return render_template("admin_dashboard.html",
                            stats=stats, users=users, submissions=submissions,
                            all_activity=all_activity, model_versions=model_versions,
-                           training_jobs=training_jobs)
+                           training_jobs=training_jobs,
+                           is_db_connected=is_connected)
 
 
 @auth_bp.route("/admin/users")
@@ -404,8 +408,22 @@ def trigger_retrain():
 
 
 # ── In-memory metadata caches to protect Atlas from concurrent image requests ──
-_SUBMISSION_META_CACHE: dict = {}
-_SAMPLE_META_CACHE: dict = {}
+class _BoundedCache(dict):
+    def __init__(self, maxsize: int = 500):
+        super().__init__()
+        self.maxsize = maxsize
+
+    def __setitem__(self, key, value):
+        if len(self) >= self.maxsize:
+            try:
+                self.pop(next(iter(self)), None)
+            except Exception:
+                pass
+        super().__setitem__(key, value)
+
+
+_SUBMISSION_META_CACHE: dict = _BoundedCache(500)
+_SAMPLE_META_CACHE: dict = _BoundedCache(1000)
 
 
 def _resolve_sample_file(sample: dict, sub: Optional[dict] = None) -> tuple[Optional[object], str]:

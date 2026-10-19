@@ -697,30 +697,45 @@
     <h1 class="page-title">Admin Dashboard</h1>
     <p class="page-subtitle">Manage users, review submissions, and monitor activity</p>
 
+    {% if not is_db_connected %}
+    <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 14px; color: #fca5a5;">
+      <span style="font-size: 1.5rem; line-height: 1;">⚠️</span>
+      <div>
+        <strong style="color: #ffffff; font-size: 0.95rem;">Database Not Connected (Running in Local Offline Mode)</strong>
+        <p style="margin: 4px 0 0 0; font-size: 0.82rem; line-height: 1.4; color: #fecaca;">
+          This system cannot reach MongoDB Atlas. To view users, submissions, and metrics:
+          <br>1. Ensure your <code>.env</code> file has <code>DATABASE_BACKEND=mongodb</code> and a valid <code>MONGODB_URI</code>.
+          <br>2. Install required drivers: <code>pip install dnspython certifi pymongo</code>.
+          <br>3. Whitelist your network IP or add <code>0.0.0.0/0</code> in <strong>MongoDB Atlas &rarr; Network Access</strong>.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Stats (Clickable shortcuts to respective panels) -->
     <div class="stats-grid">
       <div class="stat-card" onclick="switchToAdminTab('users')" title="View Users Table">
-        <div class="stat-value accent">{{ stats.total_users }}</div>
+        <div class="stat-value accent">{{ stats.total_users or 0 }}</div>
         <div class="stat-label">Total Users &rarr;</div>
       </div>
       <div class="stat-card" onclick="switchToAdminTab('submissions', 'PENDING')" title="Filter Pending Reviews">
-        <div class="stat-value amber">{{ stats.pending_submissions }}</div>
+        <div class="stat-value amber">{{ stats.pending_submissions or 0 }}</div>
         <div class="stat-label">Pending Reviews &rarr;</div>
       </div>
       <div class="stat-card" onclick="switchToAdminTab('submissions', 'APPROVED')" title="Filter Approved Submissions">
-        <div class="stat-value green">{{ stats.approved_submissions }}</div>
+        <div class="stat-value green">{{ stats.approved_submissions or 0 }}</div>
         <div class="stat-label">Approved &rarr;</div>
       </div>
       <div class="stat-card" onclick="switchToAdminTab('submissions', 'REJECTED')" title="Filter Rejected Submissions">
-        <div class="stat-value red">{{ stats.rejected_submissions }}</div>
+        <div class="stat-value red">{{ stats.rejected_submissions or 0 }}</div>
         <div class="stat-label">Rejected &rarr;</div>
       </div>
       <div class="stat-card" onclick="switchToAdminTab('activity')" title="View Activity Feed">
-        <div class="stat-value blue">{{ stats.total_activity }}</div>
+        <div class="stat-value blue">{{ stats.total_activity or 0 }}</div>
         <div class="stat-label">Activity Events &rarr;</div>
       </div>
       <div class="stat-card" onclick="switchToAdminTab('models')" title="View Model Versions">
-        <div class="stat-value purple">{{ stats.total_models }}</div>
+        <div class="stat-value purple">{{ stats.total_models or 0 }}</div>
         <div class="stat-label">Model Versions &rarr;</div>
       </div>
     </div>

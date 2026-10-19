@@ -149,6 +149,7 @@ def train_alphabet_expert(
     print(f"\n[OK] Alphabet Expert trained - val_accuracy: {val_acc*100:.2f}%")
 
     _populate_db(le.classes_.tolist(), "Alphabet", processed_dir)
+    return float(val_acc)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -252,6 +253,7 @@ def train_word_expert(
     print(f"\n[OK] Word Expert trained - val_accuracy: {val_acc*100:.2f}%")
 
     _populate_db(le.classes_.tolist(), "Word", processed_dir)
+    return float(val_acc)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

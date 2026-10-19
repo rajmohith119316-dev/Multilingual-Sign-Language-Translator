@@ -41,6 +41,17 @@ class DatabaseManager:
 
         if self.backend == "mongodb" and config.MONGODB_URI:
             try:
+                try:
+                    import dns.resolver
+                    _res = dns.resolver.get_default_resolver()
+                    for _ns in ["8.8.8.8", "1.1.1.1"]:
+                        if _ns not in _res.nameservers:
+                            _res.nameservers.append(_ns)
+                    _res.timeout = 2.0
+                    _res.lifetime = 4.0
+                except Exception:
+                    pass
+
                 from pymongo import MongoClient
 
                 mongo_kwargs = {

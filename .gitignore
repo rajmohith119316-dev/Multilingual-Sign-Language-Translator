@@ -29,6 +29,7 @@ videos/
 *.zip
 *.tar.gz
 *.rar
+*.bak
 
 # OS / IDE generated files
 .DS_Store

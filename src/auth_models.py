@@ -33,6 +33,13 @@ def _clean_doc(doc: Optional[dict]) -> Optional[dict]:
     d = dict(doc)
     if "_id" in d:
         d["_id"] = str(d["_id"])
+    for dt_col in ("created_at", "updated_at", "last_login", "submitted_at", "reviewed_at", "started_at", "completed_at"):
+        val = d.get(dt_col)
+        if isinstance(val, str) and val:
+            try:
+                d[dt_col] = datetime.fromisoformat(val.replace("Z", "+00:00"))
+            except Exception:
+                pass
     return d
 
 
@@ -49,6 +56,17 @@ class UserManager:
 
         if self.backend == "mongodb" and config.MONGODB_URI:
             try:
+                try:
+                    import dns.resolver
+                    _res = dns.resolver.get_default_resolver()
+                    for _ns in ["8.8.8.8", "1.1.1.1"]:
+                        if _ns not in _res.nameservers:
+                            _res.nameservers.append(_ns)
+                    _res.timeout = 2.0
+                    _res.lifetime = 4.0
+                except Exception:
+                    pass
+
                 from pymongo import MongoClient
 
                 mongo_kwargs = {
@@ -870,7 +888,7 @@ class UserManager:
                         }
                     },
                 ]
-                return list(self.mongo_db.training_submissions.aggregate(pipeline))
+                return [_clean_doc(s) for s in self.mongo_db.training_submissions.aggregate(pipeline)]
             except Exception as exc:
                 logger.error("MongoDB get_all_submissions error: %s", exc)
 
@@ -1311,7 +1329,7 @@ class UserManager:
                         }
                     },
                 ]
-                return list(self.mongo_db.training_jobs.aggregate(pipeline))
+                return [_clean_doc(j) for j in self.mongo_db.training_jobs.aggregate(pipeline)]
             except Exception as exc:
                 logger.error("MongoDB get_training_jobs error: %s", exc)
 
@@ -1341,7 +1359,7 @@ class UserManager:
                     "status": "QUEUED",
                     "started_at": None,
                     "completed_at": None,
-                    "created_by": int(created_by),
+                    "created_by": int(created_by) if created_by is not None else None,
                     "model_version_id": None,
                     "parameters": None,
                     "log_path": None,
@@ -1358,7 +1376,7 @@ class UserManager:
                 with self._connect() as conn:
                     with conn.cursor() as cur:
                         cur.execute("INSERT INTO training_jobs (job_type, created_by) VALUES (%s, %s) RETURNING id",
-                                    (job_type, int(created_by)))
+                                    (job_type, int(created_by) if created_by is not None else None))
                         job_id = cur.fetchone()[0]
                     conn.commit()
                 return job_id

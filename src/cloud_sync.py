@@ -303,8 +303,8 @@ def run_cloud_retrain(job_id: int):
         from src.train_moe import train_alphabet_expert, train_word_expert
         import joblib
 
-        train_alphabet_expert()
-        train_word_expert()
+        alpha_acc = train_alphabet_expert()
+        word_acc = train_word_expert()
 
         # Upload Alphabet model
         if config.ALPHABET_MODEL_PATH.exists():
@@ -320,6 +320,7 @@ def run_cloud_retrain(job_id: int):
                 model_path=config.ALPHABET_MODEL_PATH,
                 encoder_path=config.ALPHABET_ENCODER_PATH,
                 version_tag=f"Alphabet_Cloud_{job_id}",
+                accuracy=alpha_acc,
                 parameters={"classes": alpha_classes},
                 notes=f"Cloud retraining job #{job_id}",
             )
@@ -338,6 +339,7 @@ def run_cloud_retrain(job_id: int):
                 model_path=config.WORD_MODEL_PATH,
                 encoder_path=config.WORD_ENCODER_PATH,
                 version_tag=f"Word_Cloud_{job_id}",
+                accuracy=word_acc,
                 parameters={"classes": word_classes},
                 notes=f"Cloud retraining job #{job_id}",
             )

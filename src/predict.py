@@ -245,6 +245,18 @@ class GesturePredictor:
         logger.info("Hot-reload complete. Known words: %s | Alphabets: %s",
                     self.known_words, self.known_alphabets)
 
+    def close(self) -> None:
+        """Release underlying MediaPipe and model resources."""
+        with self._lock:
+            if self._landmarker is not None:
+                try:
+                    self._landmarker.close()
+                except Exception as exc:
+                    logger.debug("Error closing landmarker: %s", exc)
+                self._landmarker = None
+            self.reset_buffers()
+            logger.info("GesturePredictor closed and resources released.")
+
     def reset_buffers(self) -> None:
         with self._lock:
             self._word_buffer.clear()

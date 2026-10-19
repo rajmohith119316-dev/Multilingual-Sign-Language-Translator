@@ -248,6 +248,13 @@ class AudioTranslator:
         if cache_key in self._audio_cache:
             return self._audio_cache[cache_key]
 
+        if len(self._audio_cache) >= 500:
+            try:
+                oldest = next(iter(self._audio_cache))
+                del self._audio_cache[oldest]
+            except Exception:
+                pass
+
         import urllib.request
         import urllib.parse
         try:

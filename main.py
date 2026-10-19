@@ -107,12 +107,6 @@ def main() -> None:
               config.PROCESSED_ALPHABETS_DIR, config.PROCESSED_WORDS_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
-    try:
-        from src.cloud_sync import sync_active_models_from_db
-        sync_active_models_from_db()
-    except Exception as e:
-        logger.error(f"Failed to sync models from cloud: {e}")
-
     warnings = _validate_environment()
     if warnings:
         logger.warning(

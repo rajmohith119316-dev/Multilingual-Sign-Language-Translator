@@ -293,8 +293,20 @@ def run_cloud_retrain(job_id: int):
                 sample_path = s.get("sample_path")
                 file_path = label_dir / f"sub_{sub['id']}_s_{idx}.npy"
                 if data:
-                    with open(file_path, "wb") as f:
-                        f.write(data)
+                    raw_b = bytes(data)
+                    if raw_b[:6] == b"\x93NUMPY":
+                        file_path.write_bytes(raw_b)
+                    else:
+                        try:
+                            arr = np.frombuffer(raw_b, dtype=np.float32)
+                            if gtype == "Alphabet" and arr.size == 60:
+                                np.save(str(file_path), arr)
+                            elif arr.size % 123 == 0:
+                                np.save(str(file_path), arr.reshape(-1, 123))
+                            else:
+                                file_path.write_bytes(raw_b)
+                        except Exception:
+                            file_path.write_bytes(raw_b)
                 elif sample_path and Path(sample_path).exists():
                     import shutil
                     shutil.copy2(sample_path, file_path)

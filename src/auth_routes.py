@@ -343,7 +343,20 @@ def review_submission():
             action=f"{status} submission_id={sid}",
             session_id=session.get("session_id"),
         )
-        flash(f"Submission #{sid} has been {status.lower()}.", "success")
+        if status == "APPROVED":
+            try:
+                job_id = _mgr().create_training_job("Model Retraining", created_by=session["user_id"])
+                if job_id:
+                    from src.cloud_sync import start_cloud_retrain_thread
+                    start_cloud_retrain_thread(job_id)
+                    flash(f"Submission #{sid} approved! Retraining job #{job_id} started automatically in background.", "success")
+                else:
+                    flash(f"Submission #{sid} approved.", "success")
+            except Exception as retrain_err:
+                logger.warning("Could not auto-start retraining for submission #%s: %s", sid, retrain_err)
+                flash(f"Submission #{sid} approved.", "success")
+        else:
+            flash(f"Submission #{sid} has been rejected.", "warning")
     return redirect(url_for("auth.admin_dashboard"))
 
 

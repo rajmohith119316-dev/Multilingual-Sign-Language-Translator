@@ -28,7 +28,7 @@ from src.translator import AudioTranslator
 from src.utils import (
     draw_hand_landmarks, draw_router_badge,
     draw_prediction_banner, draw_status_bar, mirror_frame,
-    extract_dual_hand_features,
+    extract_dual_hand_features, sanitize_label,
 )
 
 logger = logging.getLogger(__name__)
@@ -654,9 +654,9 @@ class TeachNewSignTab(ttk.Frame):
     # ── Recording ──────────────────────────────────────────────────────────────
 
     def _start_recording(self) -> None:
-        label = self._label_entry.get().strip().upper()
+        label = sanitize_label(self._label_entry.get())
         if not label:
-            messagebox.showwarning("Missing Label", "Enter a gesture label first.")
+            messagebox.showwarning("Missing Label", "Enter a valid gesture label first.")
             return
         if len(self._recordings) >= config.TEACH_NUM_RECORDINGS:
             messagebox.showinfo("Done", "Already have 10 recordings. Click Train Model.")
@@ -786,7 +786,7 @@ class TeachNewSignTab(ttk.Frame):
     # ── Training ───────────────────────────────────────────────────────────────
 
     def _start_train(self) -> None:
-        label = self._cur_label or self._label_entry.get().strip().upper()
+        label = sanitize_label(self._cur_label or self._label_entry.get())
         if not label or not self._recordings:
             messagebox.showwarning("Not Ready", "Record at least 5 samples first.")
             return

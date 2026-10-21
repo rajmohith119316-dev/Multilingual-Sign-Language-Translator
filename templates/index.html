@@ -1620,9 +1620,10 @@
 
     // ═══ PAGE 2 - Teach Custom Sign ══════════════════════════════════
     document.getElementById('btn-teach-record').addEventListener('click', async () => {
-      const label = document.getElementById('teach-label').value.trim();
-      const type = document.getElementById('teach-type').value;
-      if (!label) { alert('Enter a gesture label first.'); return; }
+      let rawLabel = document.getElementById('teach-label').value.trim();
+      const label = rawLabel.replace(/[<>:"/\\|?*\x00-\x1f]/g, '').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '').toUpperCase();
+      if (!label) { alert('Enter a valid gesture label first (avoid special symbols like ? / \\ *).'); return; }
+      document.getElementById('teach-label').value = label;
 
       const btn = document.getElementById('btn-teach-record');
       const status = document.getElementById('teach-rec-status');

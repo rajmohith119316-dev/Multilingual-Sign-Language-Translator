@@ -59,23 +59,25 @@ class UserManager:
                 try:
                     import dns.resolver
                     _res = dns.resolver.get_default_resolver()
-                    for _ns in ["8.8.8.8", "1.1.1.1"]:
-                        if _ns not in _res.nameservers:
-                            _res.nameservers.append(_ns)
+                    _res.nameservers = ["8.8.8.8", "1.1.1.1"] + [ns for ns in _res.nameservers if ns not in ("8.8.8.8", "1.1.1.1")]
                     _res.timeout = 2.0
-                    _res.lifetime = 4.0
+                    _res.lifetime = 5.0
                 except Exception:
                     pass
 
+                logging.getLogger("pymongo.client").setLevel(logging.CRITICAL)
+                logging.getLogger("pymongo.topology").setLevel(logging.WARNING)
                 from pymongo import MongoClient
 
                 mongo_kwargs = {
                     "maxPoolSize": 25,
-                    "minPoolSize": 2,
-                    "serverSelectionTimeoutMS": 10000,
-                    "connectTimeoutMS": 10000,
-                    "socketTimeoutMS": 20000,
+                    "minPoolSize": 0,
+                    "maxIdleTimeMS": 45000,
+                    "serverSelectionTimeoutMS": 15000,
+                    "connectTimeoutMS": 25000,
+                    "socketTimeoutMS": 30000,
                     "retryWrites": True,
+                    "retryReads": True,
                 }
                 try:
                     import certifi
@@ -118,11 +120,13 @@ class UserManager:
 
             mongo_kwargs = {
                 "maxPoolSize": 25,
-                "minPoolSize": 2,
-                "serverSelectionTimeoutMS": 4000,
-                "connectTimeoutMS": 4000,
-                "socketTimeoutMS": 8000,
+                "minPoolSize": 0,
+                "maxIdleTimeMS": 45000,
+                "serverSelectionTimeoutMS": 10000,
+                "connectTimeoutMS": 20000,
+                "socketTimeoutMS": 25000,
                 "retryWrites": True,
+                "retryReads": True,
             }
             try:
                 import certifi
@@ -787,6 +791,8 @@ class UserManager:
     def create_submission(
         self, user_id: int, gesture_label: str, gesture_type: str = "Word", sample_count: int = 0
     ) -> Optional[int]:
+        from src.utils import sanitize_label
+        gesture_label = sanitize_label(gesture_label)
         if self.mongo_db is not None:
             try:
                 new_id = self._next_id("training_submissions")
@@ -1384,7 +1390,7 @@ class UserManager:
 
     def update_training_job_status(
         self, job_id: int, status: str, started: bool = False, completed: bool = False,
-        error_message: str = None
+        error_message: str = None, version_tag: str = None
     ) -> None:
         jid = int(job_id)
         now = datetime.now(timezone.utc)
@@ -1397,6 +1403,8 @@ class UserManager:
                     update_fields["completed_at"] = now
                 if error_message is not None:
                     update_fields["error_message"] = error_message
+                if version_tag is not None:
+                    update_fields["version_tag"] = version_tag
                 self.mongo_db.training_jobs.update_one({"id": jid}, {"$set": update_fields})
                 return
             except Exception as exc:
@@ -1412,6 +1420,8 @@ class UserManager:
                     sql += ", completed_at = NOW()"
                 if error_message is not None:
                     sql += ", error_message = %s"; params.append(error_message)
+                if version_tag is not None:
+                    sql += ", version_tag = %s"; params.append(version_tag)
                 sql += " WHERE id = %s"; params.append(jid)
                 with self._connect() as conn:
                     with conn.cursor() as cur:
@@ -1433,6 +1443,8 @@ class UserManager:
                 rejected = self.mongo_db.training_submissions.count_documents({"status": "REJECTED"})
                 total_activity = self.mongo_db.user_activity.count_documents({})
                 total_models = self.mongo_db.model_versions.count_documents({})
+                total_alphabets = self.mongo_db.gestures.count_documents({"gesture_type": "Alphabet"})
+                total_words = self.mongo_db.gestures.count_documents({"gesture_type": "Word"})
                 return {
                     "total_users": total_users,
                     "total_admins": total_admins,
@@ -1441,6 +1453,8 @@ class UserManager:
                     "rejected_submissions": rejected,
                     "total_activity": total_activity,
                     "total_models": total_models,
+                    "total_alphabets": total_alphabets,
+                    "total_words": total_words,
                 }
             except Exception as exc:
                 logger.error("MongoDB get_admin_stats error: %s", exc)

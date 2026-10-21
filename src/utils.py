@@ -17,12 +17,31 @@ Dual-hand (Word Expert):
 """
 
 import logging
+import re
 from typing import Optional
 
 import cv2
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_label(label: str) -> str:
+    """
+    Sanitize gesture label for use in file paths, directories, and model classes.
+    - Removes characters illegal in Windows/Unix file systems: <>:"/\\|?*
+    - Removes ASCII control characters (\x00-\x1f)
+    - Normalizes multiple spaces into a single space
+    - Strips leading/trailing spaces and dots
+    - Returns uppercase string
+    """
+    if not label:
+        return ""
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', str(label))
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    cleaned = cleaned.rstrip('. ')
+    return cleaned.upper()
+
 
 # ─── MediaPipe hand skeleton connections (21-landmark spec) ───────────────────
 _HAND_CONNECTIONS: list[tuple[int, int]] = [

@@ -44,6 +44,7 @@ from flask import (
 )
 
 from src.auth_models import UserManager
+from src.utils import sanitize_label
 
 logger = logging.getLogger(__name__)
 
@@ -481,7 +482,8 @@ def _resolve_sample_file(sample: dict, sub: Optional[dict] = None) -> tuple[Opti
     # 3. Check inside processed directories (alphabets or words)
     target_dir = config.PROCESSED_ALPHABETS_DIR if gtype == "Alphabet" else config.PROCESSED_WORDS_DIR
     if label:
-        lbl_dir = target_dir / label.upper()
+        clean_lbl = sanitize_label(label)
+        lbl_dir = target_dir / clean_lbl
         if lbl_dir.exists():
             if sid:
                 pat = sorted(lbl_dir.glob(f"sub_{sid}_s_*.npy"))

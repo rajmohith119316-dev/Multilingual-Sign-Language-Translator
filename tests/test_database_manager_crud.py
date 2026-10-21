@@ -18,7 +18,7 @@ class TestDatabaseManagerCRUD(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.dm = DatabaseManager()
-        cls.test_prefix = f"TEST_GESTURE_{uuid.uuid4().hex[:6]}"
+        cls.test_prefix = f"TEST_GESTURE_{uuid.uuid4().hex[:6].upper()}"
 
     def test_01_backend_is_mongodb(self):
         """Verify DatabaseManager is active with MongoDB Atlas backend."""

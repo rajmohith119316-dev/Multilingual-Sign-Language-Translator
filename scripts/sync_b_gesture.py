@@ -100,7 +100,7 @@ def main():
     classes = list(le.classes_)
     print(f"Alphabet Expert trained successfully with classes: {classes}")
 
-    print("=== Step 3: Uploading updated Alphabet Model to Neon DB ===")
+    print("=== Step 3: Uploading updated Alphabet Model to Database ===")
     version_tag = f"Alphabet_Cloud_9_BOV"
     success = upload_model_to_db(
         model_type="Alphabet",
@@ -111,7 +111,7 @@ def main():
         parameters={"classes": classes},
         notes="Alphabet Expert with synced 'B', 'O', 'V' gestures",
     )
-    print(f"Upload to Neon DB result: {success}")
+    print(f"Upload to Database result: {success}")
 
 if __name__ == "__main__":
     main()

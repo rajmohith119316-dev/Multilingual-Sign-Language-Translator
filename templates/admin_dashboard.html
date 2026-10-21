@@ -734,6 +734,10 @@
         <div class="stat-value blue">{{ stats.total_activity or 0 }}</div>
         <div class="stat-label">Activity Events &rarr;</div>
       </div>
+      <div class="stat-card" onclick="switchToAdminTab('models')" title="Trained Alphabet Signs in DB">
+        <div class="stat-value accent">{{ stats.total_alphabets or 26 }}</div>
+        <div class="stat-label">Alphabets in DB &rarr;</div>
+      </div>
       <div class="stat-card" onclick="switchToAdminTab('models')" title="View Model Versions">
         <div class="stat-value purple">{{ stats.total_models or 0 }}</div>
         <div class="stat-label">Model Versions &rarr;</div>
@@ -934,6 +938,7 @@
               <th>Version</th>
               <th>Type</th>
               <th>Accuracy</th>
+              <th>Trained Classes / Signs</th>
               <th>Status</th>
               <th>Created</th>
             </tr>
@@ -944,9 +949,23 @@
               <td class="primary">{{ m.version_tag }}</td>
               <td>{{ m.model_type }}</td>
               <td>{{ '%.2f%%' | format(m.accuracy * 100) if m.accuracy else 'N/A' }}</td>
+              <td>
+                {% if m.parameters and m.parameters.classes %}
+                  <span title="{{ m.parameters.classes | join(', ') }}" style="font-size:0.8rem; color:var(--text-primary); cursor:help;">
+                    <strong style="color:var(--accent);">{{ m.parameters.classes | length }} signs</strong>
+                    {% if m.parameters.classes | length <= 8 %}
+                      ({{ m.parameters.classes | join(', ') }})
+                    {% else %}
+                      ({{ m.parameters.classes[:4] | join(', ') }}…{{ m.parameters.classes[-3:] | join(', ') }})
+                    {% endif %}
+                  </span>
+                {% else %}
+                  <span style="color:var(--text-muted);">-</span>
+                {% endif %}
+              </td>
               <td><span class="badge badge-{{ 'active' if m.is_active else 'inactive' }}">{{ 'Active' if m.is_active
                   else 'Archived' }}</span></td>
-              <td style="font-size:0.78rem;">{{ m.created_at.strftime('%d-%m-%Y') if m.created_at else '' }}</td>
+              <td style="font-size:0.78rem;">{{ m.created_at.strftime('%d-%m-%Y %H:%M') if m.created_at else '' }}</td>
             </tr>
             {% endfor %}
           </tbody>

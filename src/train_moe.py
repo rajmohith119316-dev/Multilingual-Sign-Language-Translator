@@ -11,6 +11,7 @@ Trained classes are auto-populated into the SQLite gestures table.
 
 import logging
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -149,6 +150,27 @@ def train_alphabet_expert(
     print(f"\n[OK] Alphabet Expert trained - val_accuracy: {val_acc*100:.2f}%")
 
     _populate_db(le.classes_.tolist(), "Alphabet", processed_dir)
+
+    try:
+        from src.cloud_sync import upload_model_to_db
+        vtag = f"Alphabet_MoE_v{n_cls}_{int(time.time())}"
+        uploaded = upload_model_to_db(
+            model_type="Alphabet",
+            model_path=model_path,
+            encoder_path=encoder_path,
+            version_tag=vtag,
+            accuracy=float(val_acc),
+            parameters={"classes": le.classes_.tolist()},
+            notes=f"Trained Alphabet Expert covering {n_cls} classes: {list(le.classes_)}",
+        )
+        if uploaded:
+            logger.info("Alphabet Expert uploaded and activated in database: %s", vtag)
+            print(f"[OK] Alphabet model saved to Database as active version: {vtag}")
+        else:
+            logger.warning("Could not upload Alphabet model to database.")
+    except Exception as exc:
+        logger.warning("Database upload notice: %s", exc)
+
     return float(val_acc)
 
 
@@ -253,6 +275,27 @@ def train_word_expert(
     print(f"\n[OK] Word Expert trained - val_accuracy: {val_acc*100:.2f}%")
 
     _populate_db(le.classes_.tolist(), "Word", processed_dir)
+
+    try:
+        from src.cloud_sync import upload_model_to_db
+        vtag = f"Word_MoE_v{n_cls}_{int(time.time())}"
+        uploaded = upload_model_to_db(
+            model_type="Word",
+            model_path=model_path,
+            encoder_path=encoder_path,
+            version_tag=vtag,
+            accuracy=float(val_acc),
+            parameters={"classes": le.classes_.tolist()},
+            notes=f"Trained Word Expert covering {n_cls} classes: {list(le.classes_)}",
+        )
+        if uploaded:
+            logger.info("Word Expert uploaded and activated in database: %s", vtag)
+            print(f"[OK] Word model saved to Database as active version: {vtag}")
+        else:
+            logger.warning("Could not upload Word model to database.")
+    except Exception as exc:
+        logger.warning("Database upload notice: %s", exc)
+
     return float(val_acc)
 
 

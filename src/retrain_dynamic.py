@@ -25,6 +25,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 from src.database_manager import DatabaseManager
+from src.utils import sanitize_label
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ def train_new_gesture(
         if progress_callback:
             progress_callback(step, TOTAL, msg)
 
-    new_word_label = new_word_label.strip().upper()
+    new_word_label = sanitize_label(new_word_label)
 
     # Configure paths, shapes, and architectures based on Gesture Type
     if gesture_type == "Alphabet":
@@ -247,7 +248,7 @@ def train_new_gesture(
         np.save(str(out_cls / f"{i:04d}.npy"), arr)
 
     # ── 6. Update Database & Clean Up ─────────────────────────────────────────
-    _prog(7, "Registering custom gesture in PostgreSQL database & uploading to Cloud…")
+    _prog(7, "Registering custom gesture in Database & uploading to Cloud…")
     db = DatabaseManager()
     db.add_gesture(
         gesture_name=new_word_label,
@@ -256,7 +257,7 @@ def train_new_gesture(
         sample_count=len(X_new),
     )
 
-    # ── 7. Upload to Cloud Neon Database & Hot-Reload ────────────────────────
+    # ── 7. Upload to Cloud Database & Hot-Reload ────────────────────────
     try:
         from src.cloud_sync import upload_model_to_db
         vtag = f"{gesture_type}_Custom_{new_word_label}_{len(new_classes)}"

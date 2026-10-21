@@ -19,6 +19,7 @@ from typing import Optional, Dict, Any, List
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 from src.auth_models import UserManager
+from src.utils import sanitize_label
 
 logger = logging.getLogger("cloud_sync")
 
@@ -280,8 +281,12 @@ def run_cloud_retrain(job_id: int):
             raise Exception("No approved submissions")
 
         for sub in submissions:
-            label = sub["gesture_label"].upper()
-            gtype = sub["gesture_type"]
+            raw_label = sub.get("gesture_label") or ""
+            label = sanitize_label(raw_label)
+            if not label:
+                logger.warning("Skipping submission #%s with empty/invalid label '%s'", sub.get("id"), raw_label)
+                continue
+            gtype = sub.get("gesture_type", "Word")
 
             target_dir = config.PROCESSED_ALPHABETS_DIR if gtype == "Alphabet" else config.PROCESSED_WORDS_DIR
             label_dir = target_dir / label
@@ -318,6 +323,8 @@ def run_cloud_retrain(job_id: int):
         alpha_acc = train_alphabet_expert()
         word_acc = train_word_expert()
 
+        active_tags = []
+
         # Upload Alphabet model
         if config.ALPHABET_MODEL_PATH.exists():
             alpha_classes = []
@@ -327,15 +334,17 @@ def run_cloud_retrain(job_id: int):
                     alpha_classes = list(le.classes_)
                 except Exception:
                     pass
-            upload_model_to_db(
+            alpha_tag = f"Alphabet_Cloud_{job_id}"
+            if upload_model_to_db(
                 model_type="Alphabet",
                 model_path=config.ALPHABET_MODEL_PATH,
                 encoder_path=config.ALPHABET_ENCODER_PATH,
-                version_tag=f"Alphabet_Cloud_{job_id}",
+                version_tag=alpha_tag,
                 accuracy=alpha_acc,
                 parameters={"classes": alpha_classes},
                 notes=f"Cloud retraining job #{job_id}",
-            )
+            ):
+                active_tags.append(alpha_tag)
 
         # Upload Word model
         if config.WORD_MODEL_PATH.exists():
@@ -346,18 +355,21 @@ def run_cloud_retrain(job_id: int):
                     word_classes = list(le.classes_)
                 except Exception:
                     pass
-            upload_model_to_db(
+            word_tag = f"Word_Cloud_{job_id}"
+            if upload_model_to_db(
                 model_type="Word",
                 model_path=config.WORD_MODEL_PATH,
                 encoder_path=config.WORD_ENCODER_PATH,
-                version_tag=f"Word_Cloud_{job_id}",
+                version_tag=word_tag,
                 accuracy=word_acc,
                 parameters={"classes": word_classes},
                 notes=f"Cloud retraining job #{job_id}",
-            )
+            ):
+                active_tags.append(word_tag)
 
-        mgr.update_training_job_status(job_id, status="COMPLETED", completed=True)
-        logger.info("Cloud retrain job #%d completed successfully!", job_id)
+        final_vtag = ", ".join(active_tags) if active_tags else None
+        mgr.update_training_job_status(job_id, status="COMPLETED", completed=True, version_tag=final_vtag)
+        logger.info("Cloud retrain job #%d completed successfully with versions: %s", job_id, final_vtag)
 
         try:
             import web_app

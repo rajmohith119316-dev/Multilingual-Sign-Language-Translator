@@ -54,6 +54,7 @@ from src.utils import (
     mirror_frame,
     extract_dual_hand_features,
     pad_or_sample_sequence,
+    sanitize_label,
 )
 
 # ── Logging ──────────────────────────────────────────────────────────────────
@@ -470,11 +471,11 @@ def api_process_frame():
 def api_start_recording():
     """Begin capturing frames for a new gesture recording."""
     data = request.get_json(silent=True) or {}
-    label = (data.get("label") or "").strip().upper()
+    label = sanitize_label(data.get("label") or "")
     gesture_type = data.get("type", "Word")
 
     if not label:
-        return jsonify({"error": "Enter a gesture label first."}), 400
+        return jsonify({"error": "Enter a valid gesture label first."}), 400
 
     with rec_lock:
         if rec_state["active"]:
@@ -501,7 +502,7 @@ def api_train():
         return jsonify({"error": "You must be logged in to submit training samples."}), 401
 
     with rec_lock:
-        label = rec_state["label"]
+        label = sanitize_label(rec_state.get("label") or "")
         gesture_type = rec_state.get("type", "Word")
         recordings = list(rec_state["recordings"])
         if not label or len(recordings) < 5:

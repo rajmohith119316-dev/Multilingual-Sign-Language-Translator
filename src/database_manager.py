@@ -44,23 +44,25 @@ class DatabaseManager:
                 try:
                     import dns.resolver
                     _res = dns.resolver.get_default_resolver()
-                    for _ns in ["8.8.8.8", "1.1.1.1"]:
-                        if _ns not in _res.nameservers:
-                            _res.nameservers.append(_ns)
+                    _res.nameservers = ["8.8.8.8", "1.1.1.1"] + [ns for ns in _res.nameservers if ns not in ("8.8.8.8", "1.1.1.1")]
                     _res.timeout = 2.0
-                    _res.lifetime = 4.0
+                    _res.lifetime = 5.0
                 except Exception:
                     pass
 
+                logging.getLogger("pymongo.client").setLevel(logging.CRITICAL)
+                logging.getLogger("pymongo.topology").setLevel(logging.WARNING)
                 from pymongo import MongoClient
 
                 mongo_kwargs = {
                     "maxPoolSize": 25,
-                    "minPoolSize": 2,
-                    "serverSelectionTimeoutMS": 10000,
-                    "connectTimeoutMS": 10000,
-                    "socketTimeoutMS": 20000,
+                    "minPoolSize": 0,
+                    "maxIdleTimeMS": 45000,
+                    "serverSelectionTimeoutMS": 15000,
+                    "connectTimeoutMS": 25000,
+                    "socketTimeoutMS": 30000,
                     "retryWrites": True,
+                    "retryReads": True,
                 }
                 try:
                     import certifi
@@ -103,11 +105,13 @@ class DatabaseManager:
 
             mongo_kwargs = {
                 "maxPoolSize": 25,
-                "minPoolSize": 2,
-                "serverSelectionTimeoutMS": 4000,
-                "connectTimeoutMS": 4000,
-                "socketTimeoutMS": 8000,
+                "minPoolSize": 0,
+                "maxIdleTimeMS": 45000,
+                "serverSelectionTimeoutMS": 10000,
+                "connectTimeoutMS": 20000,
+                "socketTimeoutMS": 25000,
                 "retryWrites": True,
+                "retryReads": True,
             }
             try:
                 import certifi
@@ -236,8 +240,11 @@ class DatabaseManager:
         is_custom: bool = False,
         sample_count: int = 0,
     ) -> None:
+        from src.utils import sanitize_label
+        gesture_name = sanitize_label(gesture_name)
         if self.mongo_db is not None:
             try:
+                now = datetime.now(timezone.utc)
                 existing = self.mongo_db.gestures.find_one({"gesture_name": gesture_name})
                 if existing:
                     self.mongo_db.gestures.update_one(
@@ -246,6 +253,7 @@ class DatabaseManager:
                             "gesture_type": gesture_type,
                             "is_custom": is_custom,
                             "sample_count": sample_count,
+                            "updated_at": now,
                         }}
                     )
                 else:
@@ -256,7 +264,8 @@ class DatabaseManager:
                         "gesture_type": gesture_type,
                         "is_custom": is_custom,
                         "sample_count": sample_count,
-                        "date_added": datetime.now(timezone.utc),
+                        "date_added": now,
+                        "updated_at": now,
                     })
                 return
             except Exception as exc:

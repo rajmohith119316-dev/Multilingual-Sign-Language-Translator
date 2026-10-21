@@ -1264,6 +1264,8 @@
       'WORD':     { text: ' WORD - 2 Hands',        cls: 'badge-word' },
     };
 
+    let isCountingDown = false;
+
     async function processFrameLoop() {
       const video = document.getElementById('webcam-video');
       const canvas = document.getElementById('webcam-canvas');
@@ -1392,12 +1394,16 @@
         document.getElementById('teach-rec-count').textContent = s.recordings_count || 0;
         document.getElementById('teach-rec-progress').style.width =
           ((s.recordings_count || 0) / NUM_RECORDINGS * 100) + '%';
-        document.getElementById('teach-rec-status').textContent = s.rec_status || '';
+        if (!isCountingDown) {
+          document.getElementById('teach-rec-status').textContent = s.rec_status || '';
+        }
         document.getElementById('teach-train-status').textContent = s.train_progress || '';
 
         const recBtn = document.getElementById('btn-teach-record');
         const trainBtn = document.getElementById('btn-teach-train');
-        recBtn.disabled = s.recording_active || s.train_running;
+        if (!isCountingDown) {
+          recBtn.disabled = s.recording_active || s.train_running;
+        }
         trainBtn.disabled = s.train_running || (s.recordings_count || 0) < 5;
 
         if (s.recording_active) {
@@ -1625,16 +1631,31 @@
       if (!label) { alert('Enter a valid gesture label first (avoid special symbols like ? / \\ *).'); return; }
       document.getElementById('teach-label').value = label;
 
+      const typeSelect = document.getElementById('teach-type');
+      const gestureType = typeSelect ? typeSelect.value : 'Word';
+
       const btn = document.getElementById('btn-teach-record');
       const status = document.getElementById('teach-rec-status');
       btn.disabled = true;
+      isCountingDown = true;
 
-      for (let n = 3; n > 0; n--) {
-        status.textContent = 'Get ready… ' + n;
-        await new Promise(r => setTimeout(r, 1000));
+      try {
+        for (let n = 3; n > 0; n--) {
+          status.textContent = 'Get ready… ' + n;
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        status.textContent = 'Recording…';
+        const res = await post('/api/start_recording', { label, type: gestureType });
+        if (!res || !res.ok) {
+          btn.disabled = false;
+        }
+      } catch (err) {
+        console.error('start_recording error:', err);
+        status.textContent = 'Error: ' + err.message;
+        btn.disabled = false;
+      } finally {
+        isCountingDown = false;
       }
-      status.textContent = 'Recording…';
-      await post('/api/start_recording', { label, type });
     });
 
     document.getElementById('btn-teach-train').addEventListener('click', () => {

@@ -267,7 +267,7 @@ rec_state = {
     "type": "Word",
     "frame_buf": [],
     "recordings": [],
-    "status": "idle",
+    "status": "Ready — click 'Start Recording' to begin",
     "train_progress": "",
     "train_running": False,
 }
@@ -284,21 +284,34 @@ def _finish_recording():
     Called (under rec_lock) when SEQUENCE_LENGTH frames have been captured.
     """
     buf = rec_state["frame_buf"]
+    label = rec_state.get("label", "Unknown")
+    gtype = rec_state.get("type", "Word")
+
     if len(buf) >= 15:
-        if rec_state.get("type") == "Alphabet":
+        if gtype == "Alphabet":
             rec_state["recordings"].append(buf.copy())
             n = len(rec_state["recordings"])
-            rec_state["status"] = f"✅ Recording {n}/{config.TEACH_NUM_RECORDINGS} saved ({len(buf)} frames)."
+            if n >= config.TEACH_NUM_RECORDINGS:
+                rec_state["status"] = f"✅ All {config.TEACH_NUM_RECORDINGS} recordings captured! Click 'Submit for Review' below."
+            else:
+                rec_state["status"] = f"✅ Recording {n}/{config.TEACH_NUM_RECORDINGS} saved ({len(buf)} frames). Click 'Start Recording' for sample {n+1}."
+            logger.info("[Teach] Recording %d/%d completed for '%s' (Alphabet, %d frames).", n, config.TEACH_NUM_RECORDINGS, label, len(buf))
         else:
             seq = pad_or_sample_sequence(buf, config.SEQUENCE_LENGTH, config.WORD_NUM_FEATURES)
             if not np.all(seq == 0):
                 rec_state["recordings"].append(seq)
                 n = len(rec_state["recordings"])
-                rec_state["status"] = f"✅ Recording {n}/{config.TEACH_NUM_RECORDINGS} saved."
+                if n >= config.TEACH_NUM_RECORDINGS:
+                    rec_state["status"] = f"✅ All {config.TEACH_NUM_RECORDINGS} recordings captured! Click 'Submit for Review' below."
+                else:
+                    rec_state["status"] = f"✅ Recording {n}/{config.TEACH_NUM_RECORDINGS} saved. Click 'Start Recording' for sample {n+1}."
+                logger.info("[Teach] Recording %d/%d completed for '%s' (Word, %d frames).", n, config.TEACH_NUM_RECORDINGS, label, len(buf))
             else:
-                rec_state["status"] = "Recording discarded (no hands detected)."
+                rec_state["status"] = "⚠️ Recording discarded: no hand landmarks detected."
+                logger.warning("[Teach] Recording discarded for '%s': all zero features.", label)
     else:
-        rec_state["status"] = "Recording discarded (too few frames with hands detected)."
+        rec_state["status"] = f"⚠️ Recording discarded: too few frames with hands detected ({len(buf)}/15 min)."
+        logger.warning("[Teach] Recording discarded for '%s': only %d frames captured (minimum 15 required).", label, len(buf))
 
     rec_state["active"] = False
     rec_state["frame_buf"] = []
@@ -419,7 +432,8 @@ def api_process_frame():
     # Recording logic
     with rec_lock:
         if rec_state["active"]:
-            if rec_state.get("type") == "Alphabet":
+            gtype = rec_state.get("type", "Word")
+            if gtype == "Alphabet":
                 active_lm = left_lm if left_lm is not None else right_lm
                 if active_lm is not None:
                     from src.utils import extract_single_hand_features
@@ -436,6 +450,10 @@ def api_process_frame():
                 rec_state["status"] = "Waiting for hands in camera view…"
             else:
                 rec_state["status"] = f"Recording ({n}/{config.SEQUENCE_LENGTH} frames)"
+                if n == 1:
+                    logger.info("[Teach] Hand detected for '%s' (%s) - starting frame accumulation.", rec_state.get("label"), gtype)
+                elif n % 10 == 0:
+                    logger.debug("[Teach] Capturing '%s' (%s): %d/%d frames (hands in frame: %d).", rec_state.get("label"), gtype, n, config.SEQUENCE_LENGTH, n_hands)
 
             cv2.circle(frame, (30, 30), 12, (0, 0, 255), -1)
             cv2.putText(frame, f"REC {n}/{config.SEQUENCE_LENGTH}",
@@ -474,15 +492,21 @@ def api_start_recording():
     label = sanitize_label(data.get("label") or "")
     gesture_type = data.get("type", "Word")
 
+    logger.info("[Teach] Start recording requested: label='%s', type='%s'", label, gesture_type)
+
     if not label:
+        logger.warning("[Teach] Recording rejected: empty or invalid label.")
         return jsonify({"error": "Enter a valid gesture label first."}), 400
 
     with rec_lock:
         if rec_state["active"]:
+            logger.warning("[Teach] Recording rejected: a recording is already in progress.")
             return jsonify({"error": "A recording is already in progress."}), 400
         if len(rec_state["recordings"]) >= config.TEACH_NUM_RECORDINGS:
+            logger.warning("[Teach] Recording rejected: already have %d recordings.", config.TEACH_NUM_RECORDINGS)
             return jsonify({"error": f"Already have {config.TEACH_NUM_RECORDINGS} recordings. Train the model."}), 400
         if rec_state["train_running"]:
+            logger.warning("[Teach] Recording rejected: training in progress.")
             return jsonify({"error": "Training is in progress. Please wait."}), 400
 
         rec_state["label"] = label
@@ -490,6 +514,7 @@ def api_start_recording():
         rec_state["frame_buf"] = []
         rec_state["active"] = True
         rec_state["status"] = f"Recording (0/{config.SEQUENCE_LENGTH} frames)"
+        logger.info("[Teach] Recording activated for '%s' (%s), target %d frames.", label, gesture_type, config.SEQUENCE_LENGTH)
 
     return jsonify({"ok": True, "message": f"Recording started for '{label}'."})
 
@@ -565,7 +590,7 @@ def api_reset():
         rec_state["label"] = ""
         rec_state["frame_buf"] = []
         rec_state["recordings"] = []
-        rec_state["status"] = "idle"
+        rec_state["status"] = "Ready — click 'Start Recording' to begin"
         rec_state["train_progress"] = ""
     return jsonify({"ok": True})
 

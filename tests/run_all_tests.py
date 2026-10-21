@@ -23,6 +23,7 @@ from tests.test_model_and_inference_pipeline import TestModelAndInferencePipelin
 from tests.test_flask_routes import TestFlaskRoutes
 from tests.test_cloud_sync_and_bandwidth import TestCloudSyncAndBandwidth
 from tests.test_translator import TestTranslator
+from tests.test_teach_recording_flow import TestTeachRecordingFlow
 
 
 class DetailedTestResult(unittest.TextTestResult):
@@ -69,6 +70,7 @@ def main():
         TestFlaskRoutes,
         TestCloudSyncAndBandwidth,
         TestTranslator,
+        TestTeachRecordingFlow,
     ]
 
     for tc in test_classes:
